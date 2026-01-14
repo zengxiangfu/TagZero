@@ -55,6 +55,13 @@ export default {
     circle: 'Circle',
     polygon: 'Polygon'
   },
+  toolbar: {
+    undo: 'Undo',
+    redo: 'Redo',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    resetZoom: 'Reset Zoom'
+  },
   labelConfig: {
     editSet: 'Edit Label Set',
     newSet: 'New Label Set',

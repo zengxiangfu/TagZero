@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@types/jszip": "^3.4.0",
+    "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "^14.1.0",
     "jszip": "^3.10.1",
     "konva": "^10.0.12",

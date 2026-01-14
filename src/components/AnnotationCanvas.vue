@@ -945,8 +945,21 @@ const handleKeyDown = (e: KeyboardEvent) => {
     }
 }
 
+// Handle Esc Shortcut
+const handleEsc = () => {
+    if (isDrawing.value) {
+        isDrawing.value = false
+        drawingShape.value = {}
+    }
+    // Also cancel any dragging operations
+    editingPoints.value = null
+    draggingMidpointIndex.value = null
+    draggingMidpointPos.value = null
+}
+
 onMounted(() => {
     window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('shortcut-esc', handleEsc)
     if (wrapperRef.value) {
         const observer = new ResizeObserver(() => {
             fitImage()
@@ -957,6 +970,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeyDown)
+    window.removeEventListener('shortcut-esc', handleEsc)
 })
 
 const clampToImage = (x: number, y: number) => {
@@ -1038,17 +1052,19 @@ const handleStageMouseMove = (e: any) => {
         } else if (currentTool.value === 'circle' && drawingShape.value.circle) {
             const dx = x - startPoint.value.x
             const dy = y - startPoint.value.y
-            const r = Math.sqrt(dx * dx + dy * dy)
-            // Limit radius to fit in image? 
-            // The circle center is startPoint. 
-            // Distance to nearest edge:
-            // min(startPoint.x, imgW - startPoint.x, startPoint.y, imgH - startPoint.y)
-            // But user might want to draw partial circle? Usually annotation tools require shape inside.
-            // Let's strictly clamp the mouse point, which implicitly limits radius but allows some freedom.
-            // However, a circle with center (10,10) and radius 20 goes out of bounds.
-            // We should ideally clamp the radius so the circle fits.
-            // Let's just clamp the mouse position for now, which is consistent with rect.
-            drawingShape.value.circle.radius = r
+            let r = Math.sqrt(dx * dx + dy * dy)
+            
+            // Limit radius to fit in image
+            const imgW = imageObj.value?.width ?? 0
+            const imgH = imageObj.value?.height ?? 0
+            const cx = startPoint.value.x
+            const cy = startPoint.value.y
+            
+            // The circle must stay within [0,0] to [imgW, imgH]
+            // Distance to nearest edge
+            const maxRadius = Math.min(cx, imgW - cx, cy, imgH - cy)
+            
+            drawingShape.value.circle.radius = Math.min(r, maxRadius)
         }
     }
     

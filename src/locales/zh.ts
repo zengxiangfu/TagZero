@@ -55,6 +55,13 @@ export default {
     circle: '圆形',
     polygon: '多边形'
   },
+  toolbar: {
+    undo: '撤销',
+    redo: '重做',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    resetZoom: '重置缩放'
+  },
   labelConfig: {
     editSet: '编辑标签集',
     newSet: '新建标签集',
