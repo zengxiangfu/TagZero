@@ -224,6 +224,12 @@
   </div>
 </template>
 
+<script lang="ts">
+export default {
+  name: 'AnnotationCanvas'
+}
+</script>
+
 <script setup lang="ts">
 import { ref, watch, onMounted, nextTick, computed, onUnmounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'

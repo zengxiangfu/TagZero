@@ -5,7 +5,18 @@ export default {
   },
   common: {
     upload: '上传',
-    export: '导出 JSON',
+    export: '导出数据',
+    exportSuccess: '导出成功',
+    exportFormat: '导出格式',
+    selectExportFormat: '请选择导出格式',
+    unannotatedWarning: '共有 {count} 个原始文件未标注，原始文件的序号背景色改为了<span style="color: #d03050">红色</span>，请确认是否继续导出数据',
+    unannotatedDetail: '如：{indices} 未标注',
+    formats: {
+        tagzero: 'TagZero JSON (原生)',
+        coco: 'COCO (JSON)',
+        yolo: 'YOLO (TXT + Zip)',
+        voc: 'Pascal VOC (XML + Zip)'
+    },
     delete: '删除',
     edit: '编辑',
     cancel: '取消',

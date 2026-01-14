@@ -5,7 +5,18 @@ export default {
   },
   common: {
     upload: 'Upload',
-    export: 'Export JSON',
+    export: 'Export Data',
+    exportSuccess: 'Export successful',
+    exportFormat: 'Export Format',
+    selectExportFormat: 'Select Export Format',
+    unannotatedWarning: 'There are {count} unannotated original files. The background color of their indices has been changed to <span style="color: #d03050">red</span>. Please confirm whether to continue exporting data.',
+    unannotatedDetail: 'E.g.: {indices} unannotated',
+    formats: {
+        tagzero: 'TagZero JSON (Native)',
+        coco: 'COCO (JSON)',
+        yolo: 'YOLO (TXT + Zip)',
+        voc: 'Pascal VOC (XML + Zip)'
+    },
     delete: 'Delete',
     edit: 'Edit',
     cancel: 'Cancel',

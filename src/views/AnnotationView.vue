@@ -9,10 +9,6 @@
                         <template #icon><n-icon><div class="icon-folder" /></n-icon></template>
                         {{ t('common.uploadFolder') }}
                     </n-button>
-                    <n-button @click="triggerUpload('single')">
-                        <template #icon><n-icon><div class="icon-image" /></n-icon></template>
-                        {{ t('common.uploadSingle') }}
-                    </n-button>
                     <n-button @click="triggerUpload('multiple')">
                         <template #icon><n-icon><div class="icon-images" /></n-icon></template>
                         {{ t('common.uploadMultiple') }}
@@ -44,7 +40,7 @@
             @click="store.selectImage(img.id)"
           >
             <div class="image-item">
-              <div class="image-index">{{ index + 1 }}</div>
+              <div class="image-index" :style="{ backgroundColor: unannotatedImageIds.has(img.id) ? '#d03050' : '#1890ff' }">{{ index + 1 }}</div>
               <div class="image-thumb">
                 <img :src="img.url" alt="thumb" />
               </div>
@@ -64,6 +60,7 @@
       <n-layout content-style="display: flex; flex-direction: column;">
         <!-- Toolbar -->
         <div class="toolbar">
+          <div style="flex: 1"></div>
           <n-radio-group :value="currentTool" @update:value="store.setTool">
             <n-radio-button value="rect">
               <n-icon><div class="icon-rect" /></n-icon> {{ t('shapes.rect') }}
@@ -78,6 +75,12 @@
               <n-icon><div class="icon-polygon" /></n-icon> {{ t('shapes.polygon') }}
             </n-radio-button>
           </n-radio-group>
+
+          <div style="flex: 1; display: flex; justify-content: flex-end; padding-right: 20px;">
+            <n-button size="small" @click="handleExport">
+              {{ t('common.export') }}
+            </n-button>
+          </div>
         </div>
 
         <!-- Canvas Area -->
@@ -212,7 +215,6 @@
     </n-layout>
 
     <!-- Hidden File Inputs -->
-    <input type="file" ref="fileInputSingle" style="display: none" accept="image/*" @change="(e) => handleFileChange(e)" />
     <input type="file" ref="fileInputMultiple" style="display: none" accept="image/*" multiple @change="(e) => handleFileChange(e)" />
     <input type="file" ref="fileInputDirectory" style="display: none" webkitdirectory directory @change="(e) => handleFileChange(e)" />
     <n-modal v-model:show="showAddLabelModal">
@@ -234,6 +236,23 @@
         </n-space>
       </n-card>
     </n-modal>
+    <n-modal v-model:show="showExportModal" preset="dialog" :title="t('common.export')">
+        <div style="margin-top: 10px;">
+            <div v-if="unannotatedImageIds.size > 0" style="margin-bottom: 16px; padding: 12px; background-color: #fff2f0; border: 1px solid #ffccc7; border-radius: 4px; color: #333;">
+                <div style="font-weight: bold; margin-bottom: 8px; line-height: 1.5;" v-html="t('common.unannotatedWarning', { count: `<span style='color: #d03050'>${unannotatedImageIds.size}</span>` })">
+                </div>
+                <div style="font-size: 12px; color: #666; line-height: 1.5;">
+                    {{ t('common.unannotatedDetail', { indices: getUnannotatedIndicesDisplay() }) }}
+                </div>
+            </div>
+            <div style="margin-bottom: 8px;">{{ t('common.selectExportFormat') }}</div>
+            <n-select v-model:value="exportFormat" :options="exportFormatOptions" />
+        </div>
+        <template #action>
+            <n-button @click="showExportModal = false">{{ t('common.cancel') }}</n-button>
+            <n-button type="primary" :loading="isExporting" @click="confirmExport">{{ t('common.confirm') }}</n-button>
+        </template>
+    </n-modal>
   </div>
 </template>
 
@@ -248,6 +267,7 @@ import {
 import AnnotationCanvas from '../components/AnnotationCanvas.vue'
 import { useEditorStore } from '../stores/editor'
 import { useLabelStore, PRESET_COLORS } from '../stores/labelStore'
+import { exportData, type ExportFormat } from '../utils/exportUtils'
 import { storeToRefs } from 'pinia'
 import type { ImageFile, LabelSet } from '../types'
 
@@ -257,7 +277,6 @@ const labelStore = useLabelStore()
 const message = useMessage()
 const { images, currentImageId, currentImage, currentAnnotations, selectedAnnotationId, currentTool, currentLabelId } = storeToRefs(store)
 
-const fileInputSingle = ref<HTMLInputElement | null>(null)
 const fileInputMultiple = ref<HTMLInputElement | null>(null)
 const fileInputDirectory = ref<HTMLInputElement | null>(null)
 
@@ -281,11 +300,9 @@ const newLabelColor = ref('#FF0000')
 //    }
 // }, { immediate: true })
 
-const triggerUpload = (type: 'directory' | 'single' | 'multiple') => {
+const triggerUpload = (type: 'directory' | 'multiple') => {
     if (type === 'directory') {
         fileInputDirectory.value?.click()
-    } else if (type === 'single') {
-        fileInputSingle.value?.click()
     } else {
         fileInputMultiple.value?.click()
     }
@@ -447,6 +464,60 @@ const confirmAddLabel = () => {
     }
     
     showAddLabelModal.value = false
+}
+
+const showExportModal = ref(false)
+const exportFormat = ref<ExportFormat>('tagzero')
+const isExporting = ref(false)
+const unannotatedImageIds = ref<Set<string>>(new Set())
+
+const exportFormatOptions = computed(() => [
+    { label: t('common.formats.tagzero'), value: 'tagzero' },
+    { label: t('common.formats.coco'), value: 'coco' },
+    { label: t('common.formats.yolo'), value: 'yolo' },
+    { label: t('common.formats.voc'), value: 'voc' }
+])
+
+const handleExport = () => {
+    const unannotated = new Set<string>()
+    images.value.forEach(img => {
+        if (img.annotations.length === 0) {
+            unannotated.add(img.id)
+        }
+    })
+    unannotatedImageIds.value = unannotated
+    showExportModal.value = true
+}
+
+const getUnannotatedIndicesDisplay = () => {
+    const indices = images.value
+        .map((img, index) => ({ id: img.id, index: index + 1 }))
+        .filter(item => unannotatedImageIds.value.has(item.id))
+        .map(item => item.index)
+    
+    if (indices.length <= 10) {
+        return indices.join('、')
+    } else {
+        return indices.slice(0, 10).join('、') + '...'
+    }
+}
+
+const confirmExport = async () => {
+    try {
+        isExporting.value = true
+        await exportData({
+            images: images.value,
+            labelSet: currentLabelSet.value,
+            format: exportFormat.value
+        })
+        message.success(t('common.exportSuccess'))
+        showExportModal.value = false
+    } catch (error: any) {
+        console.error(error)
+        message.error('Export failed: ' + error.message || error)
+    } finally {
+        isExporting.value = false
+    }
 }
 
 const handleDeleteLabel = (labelId: string) => {
