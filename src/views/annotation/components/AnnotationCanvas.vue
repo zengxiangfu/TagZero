@@ -233,10 +233,10 @@ export default {
 <script setup lang="ts">
 import { ref, watch, onMounted, nextTick, computed, onUnmounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useEditorStore } from '../stores/editor'
-import { useLabelStore } from '../stores/labelStore'
+import { useEditorStore } from '../../../stores/editor'
+import { useLabelStore } from '../../../stores/labelStore'
 import { storeToRefs } from 'pinia'
-import type { Annotation, LabelSet } from '../types'
+import type { Annotation, LabelSet } from '../../../types'
 import { NDropdown, useMessage } from 'naive-ui'
 
 defineOptions({
@@ -286,7 +286,7 @@ const contextMenuOptions = computed(() => {
     if (!ann) return []
 
     // Use activeLabelSet if available, otherwise fallback to finding in store
-    let targetSet = props.activeLabelSet
+    let targetSet: LabelSet | null | undefined = props.activeLabelSet
     
     if (!targetSet) {
         // Try to find the label set containing this annotation's label
@@ -928,7 +928,13 @@ const fitImage = () => {
     const imgW = imageObj.value.width
     const imgH = imageObj.value.height
     
-    const scale = Math.min(w / imgW, h / imgH)
+    // Calculate scale to fit image within canvas (contain)
+    let scale = Math.min(w / imgW, h / imgH)
+    
+    // If image is smaller than canvas (scale > 1), use original size (scale = 1)
+    if (scale > 1) {
+        scale = 1
+    }
     
     groupConfig.value = {
         scaleX: scale,

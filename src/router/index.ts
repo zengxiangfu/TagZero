@@ -16,7 +16,7 @@ const router = createRouter({
     {
       path: '/annotation',
       name: 'annotation',
-      component: () => import('../views/AnnotationView.vue')
+      component: () => import('../views/annotation/index.vue')
     },
     {
       path: '/label-config',

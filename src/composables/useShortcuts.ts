@@ -7,9 +7,7 @@ export function useShortcuts() {
     const { 
         currentImageId, 
         images, 
-        selectedAnnotationId,
-        currentAnnotations,
-        currentTool
+        selectedAnnotationId
     } = storeToRefs(store)
 
     // Helper to check if user is typing in an input
