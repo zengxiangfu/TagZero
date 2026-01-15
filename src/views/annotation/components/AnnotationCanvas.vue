@@ -1,5 +1,5 @@
 <template>
-  <div ref="wrapperRef" class="canvas-wrapper w-full h-full bg-gray-100 overflow-hidden relative">
+  <div ref="wrapperRef" class="canvas-wrapper w-full h-full bg-gray-100 overflow-hidden relative" @contextmenu.prevent>
     <v-stage
       ref="stageRef"
       :config="stageConfig"
@@ -367,8 +367,17 @@ const handleMenuSelect = (key: string) => {
     closeContextMenu()
 }
 
-const stageConfig = ref({ width: 800, height: 600 })
+const stageSize = ref({ width: 800, height: 600 })
 const groupConfig = ref({ x: 0, y: 0, scaleX: 1, scaleY: 1 })
+
+const stageConfig = computed(() => ({
+    width: stageSize.value.width,
+    height: stageSize.value.height,
+    scaleX: store.stageConfig.scale,
+    scaleY: store.stageConfig.scale,
+    x: store.stageConfig.x,
+    y: store.stageConfig.y
+}))
 
 defineExpose({
     stageRef,
@@ -922,8 +931,8 @@ const fitImage = () => {
     if (!wrapperRef.value || !imageObj.value) return
     const w = wrapperRef.value.clientWidth
     const h = wrapperRef.value.clientHeight
-    stageConfig.value.width = w
-    stageConfig.value.height = h
+    stageSize.value.width = w
+    stageSize.value.height = h
 
     const imgW = imageObj.value.width
     const imgH = imageObj.value.height
@@ -989,8 +998,22 @@ const clampToImage = (x: number, y: number) => {
     }
 }
 
+const isPanning = ref(false)
+const panningStart = ref({ x: 0, y: 0 })
+
 // Stage Events for Drawing
 const handleStageMouseDown = (e: any) => {
+    // Check for Right Click (button 2) for Panning
+    if (e.evt.button === 2) {
+        e.evt.preventDefault() // Prevent context menu on start
+        isPanning.value = true
+        panningStart.value = { 
+            x: e.evt.clientX, 
+            y: e.evt.clientY 
+        }
+        return
+    }
+
     if (!currentTool.value || !imageObj.value) return
     if (selectedAnnotationId.value) {
         store.selectedAnnotationId = null

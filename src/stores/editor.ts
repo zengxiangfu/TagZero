@@ -44,6 +44,9 @@ export const useEditorStore = defineStore('editor', () => {
     currentImage.value?.annotations || []
   )
 
+  const canUndo = computed(() => undoStack.value.length > 0)
+  const canRedo = computed(() => redoStack.value.length > 0)
+
   // Actions
   function addImages(newImages: ImageFile[]) {
     images.value.push(...newImages)
@@ -158,6 +161,8 @@ export const useEditorStore = defineStore('editor', () => {
     isDrawing,
     undoStack,
     redoStack,
+    canUndo,
+    canRedo,
     addImages,
     selectImage,
     addAnnotation,

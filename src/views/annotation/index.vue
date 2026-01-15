@@ -42,7 +42,7 @@
       <!-- 右侧边栏：标签 & 标注结果 -->
       <n-layout-sider
         bordered
-        :width="'20%'"
+        :width="'15%'"
         content-style="padding: 0; display: flex; flex-direction: column; height: 100%;"
       >
         <div class="sidebar-header">
