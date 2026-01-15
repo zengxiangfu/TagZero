@@ -123,7 +123,7 @@
                         stroke: ann.color,
                         strokeWidth: 2 / groupConfig.scaleX,
                         draggable: true,
-                        dragBoundFunc: getDragBoundFunc()
+                        dragBoundFunc: getAnchorDragBoundFunc()
                     }"
                     @dragstart="handleAnchorDragStart($event, ann.id)"
                     @dragmove="handleAnchorDragMove($event, ann.id, index)"
@@ -144,7 +144,7 @@
                             stroke: ann.color,
                             strokeWidth: 2 / groupConfig.scaleX,
                             draggable: true,
-                            dragBoundFunc: getDragBoundFunc()
+                            dragBoundFunc: getAnchorDragBoundFunc()
                         }"
                         @dragstart="handleMidpointDragStart($event, ann.id, point.insertIndex)"
                         @dragmove="handleMidpointDragMove($event, ann.id, point.insertIndex)"
@@ -1194,6 +1194,33 @@ const getDragBoundFunc = () => {
     return (pos: { x: number, y: number }) => {
         // Just return pos for now, or implement bounds
         return pos
+    }
+}
+
+// Helper for anchor drag bound func (limit to image area)
+const getAnchorDragBoundFunc = () => {
+    return function(this: any, pos: { x: number, y: number }) {
+        const node = this
+        // Check if image is loaded
+        if (!imageObj.value) return pos
+
+        // Get parent (Group)
+        const group = node.getParent()
+        if (!group) return pos
+        
+        // Convert absolute pos to local pos (relative to group)
+        // We need to invert the group's absolute transform to get local coordinates
+        const transform = group.getAbsoluteTransform()
+        const localPos = transform.copy().invert().point(pos)
+        
+        const imgW = imageObj.value.width
+        const imgH = imageObj.value.height
+        
+        const clampedX = Math.max(0, Math.min(localPos.x, imgW))
+        const clampedY = Math.max(0, Math.min(localPos.y, imgH))
+        
+        // Convert back to absolute pos
+        return transform.point({ x: clampedX, y: clampedY })
     }
 }
 
