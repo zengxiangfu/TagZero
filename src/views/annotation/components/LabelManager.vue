@@ -31,28 +31,39 @@
                 v-for="label in currentLabelSet.labels" 
                 :key="label.id"
                 class="label-chip"
+                :class="{ 'selected-label': currentLabelId === label.id }"
                 :style="{ 
                     backgroundColor: currentLabelId === label.id ? label.color + '33' : 'transparent' 
                 }"
                 @click="store.currentLabelId = label.id"
             >
-                <div class="color-dot" :style="{ background: label.color }"></div>
-                <span>{{ label.name }}</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div 
+                        v-if="currentLabelId === label.id" 
+                        class="selection-arrow" 
+                        :style="{ borderLeftColor: label.color }"
+                    ></div>
+                    <div class="color-dot" :style="{ background: label.color }"></div>
+                    <span :class="{ 'selected-text': currentLabelId === label.id }">{{ label.name }}{{ label.value ? ` [${label.value}]` : '' }}</span>
+                </div>
                 <div class="delete-icon" @click.stop="handleDeleteLabel(label.id)">
-                    <n-icon size="12"><div class="icon-close" /></n-icon>
+                    <n-icon size="14">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z" fill="currentColor"/></svg>
+                    </n-icon>
                 </div>
             </div>
+        </div>
             <!-- Add Label Button -->
             <n-button 
                 v-if="!isSyncEnabled || (isSyncEnabled && selectedLabelSetId)"
                 dashed 
                 size="small" 
                 block 
+                style="flex-shrink: 0; margin-top: 8px;"
                 @click="handleAddLabel"
             >
                 + {{ t('annotation.addLabel') }}
             </n-button>
-        </div>
         </n-collapse-item>
     </n-collapse>
     </div>
@@ -69,6 +80,7 @@
       >
         <n-space vertical>
             <n-input v-model:value="newLabelName" :placeholder="t('annotation.labelName')" />
+            <n-input v-model:value="newLabelValue" :placeholder="t('labelConfig.labelValuePlaceholder')" />
             <n-color-picker v-model:value="newLabelColor" :show-alpha="false" :swatches="PRESET_COLORS" />
             <n-space justify="end">
                 <n-button @click="showAddLabelModal = false">{{ t('common.cancel') }}</n-button>
@@ -111,6 +123,7 @@ const localLabelSet = ref<LabelSet>({
 
 const showAddLabelModal = ref(false)
 const newLabelName = ref('')
+const newLabelValue = ref('')
 const newLabelColor = ref('#FF0000')
 
 const labelSetOptions = computed(() => labelStore.labelSets.map(ls => ({
@@ -130,6 +143,12 @@ const currentLabelSet = computed(() => {
         return selectedStoreLabelSet.value
     }
     return localLabelSet.value
+})
+
+const selectedColor = computed(() => {
+    if (!currentLabelSet.value || !currentLabelId.value) return '#1890ff'
+    const label = currentLabelSet.value.labels.find(l => l.id === currentLabelId.value)
+    return label ? label.color : '#1890ff'
 })
 
 // Emit changes to parent
@@ -184,6 +203,7 @@ const handleAddLabel = () => {
 
     newLabelColor.value = nextColor
     newLabelName.value = ''
+    newLabelValue.value = ''
     showAddLabelModal.value = true
 }
 
@@ -193,6 +213,7 @@ const confirmAddLabel = () => {
     const newLabel = {
         id: Math.random().toString(36).substring(2, 9),
         name: newLabelName.value.trim(),
+        value: newLabelValue.value.trim(),
         color: newLabelColor.value
     }
     
@@ -229,63 +250,76 @@ const handleDeleteLabel = (labelId: string) => {
 <style scoped>
 .label-grid {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    gap: 0;
+    height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+    border: 1px solid #eee;
+    border-radius: 4px;
 }
 .label-chip {
-    padding: 6px;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
+    padding: 4px 8px;
+    border-bottom: 1px solid #f5f5f5;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.2s;
     position: relative;
+    flex-shrink: 0;
+    height: 32px;
+}
+.label-chip:last-child {
+    border-bottom: none;
 }
 .label-chip:hover .delete-icon {
     display: flex;
 }
 .delete-icon {
-    display: none;
-    position: absolute;
-    top: -6px;
-    right: -6px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #ff4d4f;
-    color: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    z-index: 10;
+    width: 20px;
+    height: 20px;
+    color: #ff4d4f;
+    cursor: pointer;
+    opacity: 0.8;
 }
 .delete-icon:hover {
-    background: #ff7875;
-    transform: scale(1.1);
+    opacity: 1;
+    background-color: #fff1f0;
+    border-radius: 4px;
 }
-.icon-close {
-    width: 8px;
-    height: 8px;
-    position: relative;
+
+.selected-label {
+    background: linear-gradient(90deg, v-bind("selectedColor + '14'") 0%, rgba(255, 255, 255, 0) 100%) !important;
 }
-.icon-close::before,
-.icon-close::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 2px;
-    background: currentColor;
-    transform: translate(-50%, -50%) rotate(45deg);
-    border-radius: 1px;
+
+.selected-text {
+    font-weight: bold;
+    color: v-bind("selectedColor");
+    text-shadow: 0 0 1px v-bind("selectedColor + '33'");
 }
-.icon-close::after {
-    transform: translate(-50%, -50%) rotate(-45deg);
+
+.selection-arrow {
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 8px solid;
+    margin-right: 0;
+    flex-shrink: 0;
+    animation: arrowPulse 1.2s infinite ease-in-out;
 }
+
+@keyframes arrowPulse {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(3px); }
+}
+
 .color-dot {
     width: 14px;
     height: 14px;

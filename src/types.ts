@@ -13,6 +13,7 @@ export interface Rect {
 export interface LabelItem {
   id: string;
   name: string;
+  value?: string;
   color: string;
 }
 

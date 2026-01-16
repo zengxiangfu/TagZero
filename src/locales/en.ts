@@ -46,8 +46,8 @@ export default {
     selectLabelFirst: 'Please select a label first',
     originalFiles: 'Original Files',
     annotationResults: 'Annotation Results',
-    realTimeSync: 'Real-time Sync:',
-    syncTip: 'If enabled, adding/deleting preset labels will sync to the selected label set.'
+    realTimeSync: 'Label Sync:',
+    syncTip: 'If Label Sync is enabled, [Add] and [Delete] operations on preset labels will sync to the selected label set.'
   },
   shapes: {
     rect: 'Rect',
@@ -70,11 +70,13 @@ export default {
     presetImage: 'Preset Image',
     labels: 'Labels',
     labelNamePlaceholder: 'Label Name',
+    labelValuePlaceholder: 'Label Value',
     deleteConfirm: 'Are you sure you want to delete this label set?',
     validation: {
       nameRequired: 'Label set name is required',
       labelsRequired: 'Label list cannot be empty',
-      labelNameRequired: 'Label name cannot be empty'
+      labelNameRequired: 'Label name cannot be empty',
+      duplicateLabelName: 'Label name cannot be duplicate'
     }
   }
 }

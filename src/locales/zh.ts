@@ -46,8 +46,8 @@ export default {
     selectLabelFirst: '请先选择一个标签',
     originalFiles: '原始文件',
     annotationResults: '标注结果',
-    realTimeSync: '实时同步：',
-    syncTip: '如果开启实时同步，预设标签的新增、删除会同步修改选中的标签集中'
+    realTimeSync: '标签同步：',
+    syncTip: '如果开启标签同步，预设标签的【新增】、【删除】会同步修改选中的标签集'
   },
   shapes: {
     rect: '矩形',
@@ -70,11 +70,13 @@ export default {
     presetImage: '预设图片',
     labels: '标签列表',
     labelNamePlaceholder: '标签名称',
+    labelValuePlaceholder: '标签值',
     deleteConfirm: '确定要删除这个标签集吗？',
     validation: {
       nameRequired: '请输入标签集名称',
       labelsRequired: '标签列表不能为空',
-      labelNameRequired: '标签名称不能为空'
+      labelNameRequired: '标签名称不能为空',
+      duplicateLabelName: '标签名称不能重复'
     }
   }
 }

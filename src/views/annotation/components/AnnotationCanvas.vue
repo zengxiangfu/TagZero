@@ -206,6 +206,13 @@
             </template>
           </template>
 
+          <!-- Alignment Lines -->
+          <v-line
+             v-for="(line, i) in alignmentLines"
+             :key="`alignment-${i}`"
+             :config="line"
+          />
+
           <v-transformer ref="transformerRef" :config="{ keepRatio: true, ignoreStroke: true }" />
         </v-group>
       </v-layer>
@@ -235,6 +242,7 @@ import { ref, watch, onMounted, nextTick, computed, onUnmounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorStore } from '../../../stores/editor'
 import { useLabelStore } from '../../../stores/labelStore'
+import { useAlignment } from '../composables/useAlignment'
 import { storeToRefs } from 'pinia'
 import type { Annotation, LabelSet } from '../../../types'
 import { NDropdown, useMessage } from 'naive-ui'
@@ -253,6 +261,7 @@ const labelStore = useLabelStore()
 const message = useMessage()
 const { currentImage, currentAnnotations, selectedAnnotationId, currentTool, currentLabelId } = storeToRefs(store)
 const { labelSets } = storeToRefs(labelStore)
+const { alignmentLines, snapNode, snapPoint, clearLines } = useAlignment()
 
 const sortedAnnotations = computed(() => {
     if (!currentAnnotations.value) return []
@@ -582,6 +591,9 @@ const getClampedTranslation = (ann: Annotation, dx: number, dy: number) => {
 }
 
 const handleShapeDragMove = (e: any, annId: string) => {
+    // Snap to grid/objects
+    snapNode(e, groupConfig.value.scaleX)
+
     const node = e.target
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (!ann) return
@@ -619,6 +631,7 @@ const handleShapeDragMove = (e: any, annId: string) => {
 
 // 拖拽结束：更新 store
 const handleDragEnd = (e: any, annId: string) => {
+    clearLines()
     const node = e.target
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (!ann) return
@@ -696,8 +709,15 @@ const handleAnchorDragMove = (e: any, annId: string, index: number) => {
     let nx = node.x()
     let ny = node.y()
     const clamped = clampToImage(nx, ny)
-    nx = clamped.x
-    ny = clamped.y
+
+    // Snap to other objects
+    const snapped = snapPoint(clamped, node.getParent(), annId, groupConfig.value.scaleX)
+    nx = snapped.x
+    ny = snapped.y
+
+    // Update node position for visual feedback
+    node.x(nx)
+    node.y(ny)
     
     if (ann.type === 'rect') {
         // Rectangle constrained resizing logic
@@ -771,6 +791,7 @@ const handleAnchorDragMove = (e: any, annId: string, index: number) => {
 
 const handleAnchorDragEnd = (e: any, annId: string, index: number) => {
     e.cancelBubble = true
+    clearLines()
     const node = e.target
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (!ann) return
@@ -857,17 +878,26 @@ const handleMidpointDragStart = (e: any, annId: string, insertIndex: number) => 
     draggingMidpointPos.value = { x: clamped.x, y: clamped.y }
 }
 
-const handleMidpointDragMove = (e: any, _annId: string, _insertIndex: number) => {
+const handleMidpointDragMove = (e: any, annId: string, _insertIndex: number) => {
     e.cancelBubble = true
     const node = e.target
     let nx = node.x()
     let ny = node.y()
     const clamped = clampToImage(nx, ny)
-    draggingMidpointPos.value = { x: clamped.x, y: clamped.y }
+    
+    // Snap
+    const snapped = snapPoint(clamped, node.getParent(), annId, groupConfig.value.scaleX)
+    nx = snapped.x
+    ny = snapped.y
+    node.x(nx)
+    node.y(ny)
+    
+    draggingMidpointPos.value = { x: nx, y: ny }
 }
 
 const handleMidpointDragEnd = (e: any, annId: string, insertIndex: number) => {
     e.cancelBubble = true
+    clearLines()
     const node = e.target
     let newX = node.x()
     let newY = node.y()
@@ -1155,6 +1185,13 @@ const finishDrawing = () => {
     if (currentTool.value === 'rect' && drawingShape.value.rect) {
         // Normalize rect
         const { x, y, width, height } = drawingShape.value.rect
+        // Min size check (e.g. 5px)
+        if (Math.abs(width) < 5 || Math.abs(height) < 5) {
+             isDrawing.value = false
+             drawingShape.value = {}
+             return
+        }
+        
         newAnn.rect = {
             x: width < 0 ? x + width : x,
             y: height < 0 ? y + height : y,
@@ -1162,6 +1199,13 @@ const finishDrawing = () => {
             height: Math.abs(height)
         }
     } else if (currentTool.value === 'circle' && drawingShape.value.circle) {
+        // Min radius check (e.g. 3px)
+        if ((drawingShape.value.circle.radius || 0) < 3) {
+             isDrawing.value = false
+             drawingShape.value = {}
+             return
+        }
+        
         newAnn.rect = { 
             x: drawingShape.value.circle.x, 
             y: drawingShape.value.circle.y, 

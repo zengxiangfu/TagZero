@@ -52,6 +52,7 @@
         <template #default="{ value }">
           <div style="display: flex; align-items: center; width: 100%; gap: 10px;">
             <n-input v-model:value="value.name" :placeholder="t('labelConfig.labelNamePlaceholder')" style="flex: 1" />
+            <n-input v-model:value="value.value" :placeholder="t('labelConfig.labelValuePlaceholder')" style="flex: 1" />
             <n-color-picker v-model:value="value.color" :swatches="PRESET_COLORS" style="width: 100px" />
           </div>
         </template>
@@ -137,6 +138,17 @@ const handleSave = () => {
     return
   }
 
+  // Check duplicate names
+  const names = new Set<string>()
+  for (const l of currentSet.labels) {
+    const name = l.name.trim()
+    if (names.has(name)) {
+      message.error(t('labelConfig.validation.duplicateLabelName') + ': ' + name)
+      return
+    }
+    names.add(name)
+  }
+
   if (isEdit.value && currentId.value) {
     store.updateLabelSet(currentId.value, currentSet)
   } else {
@@ -175,6 +187,7 @@ const createLabel = (): LabelItem => {
   return {
     id: Math.random().toString(36).substring(2, 9),
     name: '',
+    value: '',
     color: randomColor
   }
 }
