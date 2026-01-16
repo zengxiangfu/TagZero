@@ -21,7 +21,7 @@
                 y: ann.rect.y,
                 width: ann.rect.width,
                 height: ann.rect.height,
-                fill: 'transparent', // Ensure hit detection inside
+                hitStrokeWidth: 10 / groupConfig.scaleX,
                 stroke: selectedAnnotationId === ann.id ? 'transparent' : ann.color, // Hide rect stroke when selected (editing vertices)
                 strokeWidth: 2 / groupConfig.scaleX,
                 draggable: true,
@@ -43,7 +43,7 @@
                 x: ann.rect.x,
                 y: ann.rect.y,
                 radius: ann.radius,
-                fill: 'transparent', // Ensure hit detection inside
+                hitStrokeWidth: 10 / groupConfig.scaleX,
                 stroke: selectedAnnotationId === ann.id ? 'transparent' : ann.color, // Hide original stroke when selected (using overlay)
                 strokeWidth: 2 / groupConfig.scaleX,
                 draggable: true,
@@ -63,10 +63,10 @@
                :config="{
                  id: ann.id,
                  points: ann.points,
-                 closed: true,
-                 fill: 'transparent', // Ensure hit detection inside
-                 stroke: selectedAnnotationId === ann.id ? 'transparent' : ann.color, // Hide original line when selected (using overlay)
-                 strokeWidth: 2 / groupConfig.scaleX,
+                closed: true,
+                hitStrokeWidth: 10 / groupConfig.scaleX,
+                stroke: selectedAnnotationId === ann.id ? 'transparent' : ann.color, // Hide original line when selected (using overlay)
+                strokeWidth: 2 / groupConfig.scaleX,
                  draggable: true,
                  name: ann.id,
                  dragBoundFunc: getDragBoundFunc(),
@@ -89,11 +89,20 @@
                      closed: true,
                      stroke: ann.color,
                      strokeWidth: 3 / groupConfig.scaleX,
+                     hitStrokeWidth: 10 / groupConfig.scaleX,
                      shadowColor: ann.color,
                      shadowBlur: 5,
                      shadowOpacity: 0.8,
-                     listening: false
+                     listening: !showMagnifier && ann.type !== 'rect',
+                     draggable: ann.type !== 'rect',
+                     dragBoundFunc: getDragBoundFunc()
                    }"
+                   @dragstart="handleShapeDragStart($event, ann.id)"
+                   @dragmove="handleShapeDragMove($event, ann.id)"
+                   @dragend="handleDragEnd($event, ann.id)"
+                   @mousedown="handleSelect($event, ann.id)"
+                   @contextmenu="handleContextMenu($event, ann.id)"
+                   @dblclick="handleLineDblClick($event, ann.id)"
                 />
 
                 <!-- Draw circle outline for Circle editing -->
@@ -131,17 +140,18 @@
                     @dragend="handleAnchorDragEnd($event, ann.id, index)"
                     @mousedown="handleStopPropagation"
                     @contextmenu="handleVertexRightClick($event, ann.id, index)"
+                    @dblclick="handleVertexDblClick($event, ann.id, index)"
                 />
                 
-                <!-- Midpoints (Add Operation Points) -->
+                <!-- Midpoints -->
                 <template v-if="ann.type === 'polygon'">
                     <v-circle
-                        v-for="(point, index) in getMidpoints(getDisplayPoints(ann))"
-                        :key="`${ann.id}-midpoint-${index}`"
+                        v-for="(midpoint, idx) in getMidpoints(editingPoints || getEditablePoints(ann))"
+                        :key="`midpoint-${idx}`"
                         :config="{
-                            x: point.x,
-                            y: point.y,
-                            radius: 5 / groupConfig.scaleX,
+                            x: midpoint.x,
+                            y: midpoint.y,
+                            radius: 4 / groupConfig.scaleX,
                             fill: '#fff',
                             stroke: ann.color,
                             strokeWidth: 2 / groupConfig.scaleX,
@@ -149,9 +159,9 @@
                             dragBoundFunc: getAnchorDragBoundFunc(),
                             listening: !showMagnifier
                         }"
-                        @dragstart="handleMidpointDragStart($event, ann.id, point.insertIndex)"
-                        @dragmove="handleMidpointDragMove($event, ann.id, point.insertIndex)"
-                        @dragend="handleMidpointDragEnd($event, ann.id, point.insertIndex)"
+                        @dragstart="handleMidpointDragStart($event, ann.id, midpoint.index)"
+                        @dragmove="handleMidpointDragMove($event, ann.id, midpoint.index)"
+                        @dragend="handleMidpointDragEnd($event, ann.id, midpoint.index)"
                         @mousedown="handleStopPropagation"
                     />
                 </template>
@@ -456,40 +466,72 @@ const getPointPairs = (points: number[]) => {
 
 // Get midpoints for adding new vertices
 const getMidpoints = (points: number[]) => {
+    if (!points || points.length < 4) return []
     const midpoints = []
-    const count = points.length / 2
-    for (let i = 0; i < count; i++) {
-        const insertIndex = i + 1
-        
-        // If this midpoint is being dragged, return the drag position directly
-        if (draggingMidpointIndex.value === insertIndex && draggingMidpointPos.value) {
-            midpoints.push({
-                x: draggingMidpointPos.value.x,
-                y: draggingMidpointPos.value.y,
-                insertIndex
-            })
-            continue
-        }
-
-        const x1 = points[i * 2] ?? 0
-        const y1 = points[i * 2 + 1] ?? 0
-        // Wrap around to start for the last segment
-        const x2 = points[((i + 1) % count) * 2] ?? 0
-        const y2 = points[((i + 1) % count) * 2 + 1] ?? 0
-        
-        // Calculate distance
-        const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        // Ensure distance is large enough on screen (approx 20px)
-        if (dist * groupConfig.value.scaleX < 20) continue
-
+    const numPoints = points.length / 2
+    for (let i = 0; i < numPoints; i++) {
+        const nextIdx = (i + 1) % numPoints
         midpoints.push({
-            x: (x1 + x2) / 2,
-            y: (y1 + y2) / 2,
-            insertIndex: insertIndex // Insert after current point (before next)
+            x: ((points[i * 2] ?? 0) + (points[nextIdx * 2] ?? 0)) / 2,
+            y: ((points[i * 2 + 1] ?? 0) + (points[nextIdx * 2 + 1] ?? 0)) / 2,
+            index: i
         })
     }
     return midpoints
 }
+
+const handleMidpointDragStart = (e: any, annId: string, index: number) => {
+    e.cancelBubble = true
+    const stage = e.target.getStage()
+    const pointer = stage.getPointerPosition()
+    
+    // Initialize editingPoints if needed
+    const ann = currentAnnotations.value.find(a => a.id === annId)
+    if (ann && !editingPoints.value) {
+         editingPoints.value = [...getEditablePoints(ann)]
+    }
+
+    draggingMidpointIndex.value = index
+    
+    // Initial pos from pointer mapped to local coords
+    const transform = e.target.getParent().getAbsoluteTransform().copy().invert()
+    const localPos = transform.point(pointer)
+    draggingMidpointPos.value = { x: localPos.x, y: localPos.y }
+}
+
+const handleMidpointDragMove = (e: any, _annId: string, _index: number) => {
+    e.cancelBubble = true
+    const stage = e.target.getStage()
+    const pointer = stage.getPointerPosition()
+    const transform = e.target.getParent().getAbsoluteTransform().copy().invert()
+    const localPos = transform.point(pointer)
+    
+    draggingMidpointPos.value = { x: localPos.x, y: localPos.y }
+}
+
+const handleMidpointDragEnd = (_e: any, annId: string, _index: number) => {
+    if (draggingMidpointIndex.value !== null && draggingMidpointPos.value && editingPoints.value) {
+        // Commit change
+        const insertIdx = (draggingMidpointIndex.value + 1) * 2
+        editingPoints.value.splice(insertIdx, 0, draggingMidpointPos.value.x, draggingMidpointPos.value.y)
+        
+        const ann = currentAnnotations.value.find(a => a.id === annId)
+        if (ann) {
+             store.updateAnnotation(annId, { points: [...editingPoints.value] })
+        }
+    }
+    
+    draggingMidpointIndex.value = null
+    draggingMidpointPos.value = null
+    editingPoints.value = null
+}
+
+// Watch selection change to clear editing state
+watch(selectedAnnotationId, () => {
+    editingPoints.value = null
+    draggingMidpointIndex.value = null
+    draggingMidpointPos.value = null
+})
 
 // Helper to get editable points for any shape (Rect/Triangle/Polygon)
 const getEditablePoints = (ann: Annotation) => {
@@ -542,33 +584,44 @@ const getDisplayCircle = (ann: Annotation) => {
 }
 
 const editingPoints = ref<number[] | null>(null)
+const isShapeDragging = ref(false)
+
 const draggingMidpointIndex = ref<number | null>(null)
 const draggingMidpointPos = ref<{x: number, y: number} | null>(null)
 
 const getDisplayPoints = (ann: Annotation) => {
     if (selectedAnnotationId.value === ann.id && editingPoints.value) {
+        if (draggingMidpointIndex.value !== null && draggingMidpointPos.value) {
+            const points = [...editingPoints.value]
+            // Insert at index + 1 (after the start point of the segment)
+            // draggingMidpointIndex is the index of the segment (0-based)
+            // Segment 0 is between point 0 and 1. We want to insert after point 0.
+            // Point 0 is at indices 0,1. Point 1 is at 2,3.
+            // So insert at index 2.
+            // Generally: insert at (index + 1) * 2
+            const insertIdx = (draggingMidpointIndex.value + 1) * 2
+            points.splice(insertIdx, 0, draggingMidpointPos.value.x, draggingMidpointPos.value.y)
+            return points
+        }
         return editingPoints.value
     }
     return getEditablePoints(ann)
 }
 
 const getPreviewPoints = (ann: Annotation) => {
-    const points = getDisplayPoints(ann)
-    if (selectedAnnotationId.value === ann.id && draggingMidpointIndex.value !== null && draggingMidpointPos.value) {
-        const newPoints = [...points]
-        // insertIndex corresponds to the vertex index where the new point should be inserted
-        // Points array is [x0, y0, x1, y1...]
-        // insertIndex 1 means insert at array index 2
-        newPoints.splice(draggingMidpointIndex.value * 2, 0, draggingMidpointPos.value.x, draggingMidpointPos.value.y)
-        return newPoints
+    // If shape is being dragged, return original points (let Konva handle translation)
+    if (isShapeDragging.value && selectedAnnotationId.value === ann.id) {
+        return getEditablePoints(ann)
     }
-    return points
+
+    return getDisplayPoints(ann)
 }
 
 // 形状拖拽开始：初始化 editingPoints
 const handleShapeDragStart = (_e: any, annId: string) => {
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (ann) {
+        isShapeDragging.value = true
         editingPoints.value = [...getEditablePoints(ann)]
     }
 }
@@ -725,6 +778,7 @@ const handleDragEnd = (e: any, annId: string) => {
     }
     
     editingPoints.value = null
+    isShapeDragging.value = false
 }
 
 const handleVertexRightClick = (e: any, annId: string, index: number) => {
@@ -732,6 +786,16 @@ const handleVertexRightClick = (e: any, annId: string, index: number) => {
     e.evt.preventDefault()
     e.cancelBubble = true
     
+    // 如果是双击事件，Konva 的 dblclick 也会触发，这里统一处理逻辑
+    deleteVertex(annId, index)
+}
+
+const handleVertexDblClick = (e: any, annId: string, index: number) => {
+    e.cancelBubble = true
+    deleteVertex(annId, index)
+}
+
+const deleteVertex = (annId: string, index: number) => {
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (!ann) return
     
@@ -741,16 +805,18 @@ const handleVertexRightClick = (e: any, annId: string, index: number) => {
         return
     }
     
-    if (!ann.points) return
+    // 获取当前实际的点数组（优先使用 store 中的数据，避免编辑过程中的临时状态干扰）
+    const currentPoints = ann.points
+    if (!currentPoints) return
     
     // 检查最少顶点约束（3个点 = 6个坐标值）
-    if (ann.points.length <= 6) {
-        message.warning('多边形至少需要保留3个顶点')
+    if (currentPoints.length <= 6) {
+        // message.warning('多边形至少需要保留3个顶点')
         return
     }
     
     // 创建新的点数组
-    const newPoints = [...ann.points]
+    const newPoints = [...currentPoints]
     
     // 删除指定索引处的 x 和 y 坐标
     // index 是顶点索引 (0, 1, 2...), 所以坐标索引是 index * 2
@@ -758,7 +824,7 @@ const handleVertexRightClick = (e: any, annId: string, index: number) => {
     
     store.updateAnnotation(annId, { points: newPoints })
     
-    // 重置编辑状态
+    // 强制重置编辑状态，确保视图刷新
     editingPoints.value = null
 }
 
@@ -935,71 +1001,18 @@ const handleAnchorDragEnd = (e: any, annId: string, index: number) => {
     editingPoints.value = null
 }
 
-const handleMidpointDragStart = (e: any, annId: string, insertIndex: number) => {
-    e.cancelBubble = true
+// 添加顶点辅助函数
+const addVertex = (annId: string, insertIndex: number, x: number, y: number) => {
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (!ann) return
-    
-    // Ensure editingPoints is initialized
-    if (!editingPoints.value) {
-        editingPoints.value = [...getEditablePoints(ann)]
-    }
-
-    const node = e.target
-    draggingMidpointIndex.value = insertIndex
-    
-    let nx = node.x()
-    let ny = node.y()
-    const clamped = clampToImage(nx, ny)
-    draggingMidpointPos.value = { x: clamped.x, y: clamped.y }
-}
-
-const handleMidpointDragMove = (e: any, annId: string, _insertIndex: number) => {
-    e.cancelBubble = true
-    const node = e.target
-    let nx = node.x()
-    let ny = node.y()
-    const clamped = clampToImage(nx, ny)
-    
-    // Snap
-    const snapped = snapPoint(clamped, node.getParent(), annId, groupConfig.value.scaleX)
-    nx = snapped.x
-    ny = snapped.y
-    node.x(nx)
-    node.y(ny)
-    
-    draggingMidpointPos.value = { x: nx, y: ny }
-}
-
-const handleMidpointDragEnd = (e: any, annId: string, insertIndex: number) => {
-    e.cancelBubble = true
-    clearLines()
-    const node = e.target
-    let newX = node.x()
-    let newY = node.y()
-    const clamped = clampToImage(newX, newY)
-    newX = clamped.x
-    newY = clamped.y
-    
-    // Reset node position
-    node.position({x:0, y:0}) 
-    
-    const ann = currentAnnotations.value.find(a => a.id === annId)
-    if (!ann) {
-        editingPoints.value = null
-        draggingMidpointIndex.value = null
-        draggingMidpointPos.value = null
-        return
-    }
 
     let points: number[] = []
     if (ann.type === 'rect' && ann.rect) {
-        const { x, y, width, height } = ann.rect
-        points = [x, y, x + width, y, x + width, y + height, x, y + height]
+        const { x: rx, y: ry, width, height } = ann.rect
+        points = [rx, ry, rx + width, ry, rx + width, ry + height, rx, ry + height]
         
-        // Convert rect to polygon first, then insert point
-        // Insert new point into the FINAL points
-        points.splice(insertIndex * 2, 0, newX, newY)
+        // Insert new point
+        points.splice(insertIndex * 2, 0, x, y)
 
         store.updateAnnotation(annId, { 
             type: 'polygon', 
@@ -1008,15 +1021,71 @@ const handleMidpointDragEnd = (e: any, annId: string, insertIndex: number) => {
         })
     } else {
         points = [...(ann.points || [])]
-        // Insert new point into the FINAL points
-        points.splice(insertIndex * 2, 0, newX, newY)
+        points.splice(insertIndex * 2, 0, x, y)
         store.updateAnnotation(annId, { points: points })
     }
-    
-    editingPoints.value = null
-    draggingMidpointIndex.value = null
-    draggingMidpointPos.value = null
 }
+
+// 辅助函数：计算点到线段的距离和投影点
+const pointToSegmentDistance = (p: {x: number, y: number}, v: {x: number, y: number}, w: {x: number, y: number}) => {
+    const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2
+    if (l2 === 0) return { dist: Math.sqrt((p.x - v.x) ** 2 + (p.y - v.y) ** 2), proj: v }
+    
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2
+    t = Math.max(0, Math.min(1, t))
+    
+    const proj = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }
+    const dist = Math.sqrt((p.x - proj.x) ** 2 + (p.y - proj.y) ** 2)
+    return { dist, proj }
+}
+
+// 多边形边双击添加顶点
+const handleLineDblClick = (e: any, annId: string) => {
+    if (showMagnifier.value) return
+    
+    const ann = currentAnnotations.value.find(a => a.id === annId)
+    if (!ann || ann.type !== 'polygon') return
+    
+    const node = e.target
+    const stage = node.getStage()
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    // 获取相对于 group 的坐标（因为 points 是相对于 group 的）
+    const transform = node.getAbsoluteTransform().copy()
+    transform.invert()
+    const pos = transform.point(pointer)
+    
+    const points = ann.points || []
+    if (points.length < 6) return
+    
+    let minDistance = Infinity
+    let insertIndex = -1
+    let insertPoint = { x: 0, y: 0 }
+    
+    const count = points.length / 2
+    for (let i = 0; i < count; i++) {
+        const p1 = { x: points[i * 2] ?? 0, y: points[i * 2 + 1] ?? 0 }
+        const p2 = { 
+            x: points[((i + 1) % count) * 2] ?? 0, 
+            y: points[((i + 1) % count) * 2 + 1] ?? 0
+        }
+        
+        const { dist, proj } = pointToSegmentDistance(pos, p1, p2)
+        
+        if (dist < minDistance) {
+            minDistance = dist
+            insertIndex = i + 1
+            insertPoint = proj
+        }
+    }
+    
+    // 阈值判断：如果距离太远（例如 > 20px），可能不是想在边上加点（尽管双击事件触发了）
+    // 但由于我们设置了 hitStrokeWidth，只有在附近才会触发事件，所以这里可以直接添加
+    addVertex(annId, insertIndex, insertPoint.x, insertPoint.y)
+}
+
+
 
 // Load Image Logic
 watch(() => currentImage.value?.url, (newUrl) => {
@@ -1074,8 +1143,6 @@ const handleEsc = () => {
     }
     // Also cancel any dragging operations
     editingPoints.value = null
-    draggingMidpointIndex.value = null
-    draggingMidpointPos.value = null
 }
 
 onMounted(() => {
