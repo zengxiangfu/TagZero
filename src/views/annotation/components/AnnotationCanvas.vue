@@ -130,6 +130,7 @@
                     @dragmove="handleAnchorDragMove($event, ann.id, index)"
                     @dragend="handleAnchorDragEnd($event, ann.id, index)"
                     @mousedown="handleStopPropagation"
+                    @contextmenu="handleVertexRightClick($event, ann.id, index)"
                 />
                 
                 <!-- Midpoints (Add Operation Points) -->
@@ -478,7 +479,8 @@ const getMidpoints = (points: number[]) => {
         
         // Calculate distance
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        if (dist < 20) continue
+        // Ensure distance is large enough on screen (approx 20px)
+        if (dist * groupConfig.value.scaleX < 20) continue
 
         midpoints.push({
             x: (x1 + x2) / 2,
@@ -722,6 +724,41 @@ const handleDragEnd = (e: any, annId: string) => {
         store.updateAnnotation(annId, { points: newPoints })
     }
     
+    editingPoints.value = null
+}
+
+const handleVertexRightClick = (e: any, annId: string, index: number) => {
+    // 阻止事件冒泡和默认菜单
+    e.evt.preventDefault()
+    e.cancelBubble = true
+    
+    const ann = currentAnnotations.value.find(a => a.id === annId)
+    if (!ann) return
+    
+    // 仅支持删除多边形/三角形的顶点（矩形和圆形有固定的几何逻辑）
+    if (ann.type === 'rect' || ann.type === 'circle') {
+        message.warning('无法删除矩形或圆形的顶点，请先转换为多边形')
+        return
+    }
+    
+    if (!ann.points) return
+    
+    // 检查最少顶点约束（3个点 = 6个坐标值）
+    if (ann.points.length <= 6) {
+        message.warning('多边形至少需要保留3个顶点')
+        return
+    }
+    
+    // 创建新的点数组
+    const newPoints = [...ann.points]
+    
+    // 删除指定索引处的 x 和 y 坐标
+    // index 是顶点索引 (0, 1, 2...), 所以坐标索引是 index * 2
+    newPoints.splice(index * 2, 2)
+    
+    store.updateAnnotation(annId, { points: newPoints })
+    
+    // 重置编辑状态
     editingPoints.value = null
 }
 
