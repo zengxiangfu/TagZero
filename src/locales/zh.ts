@@ -44,6 +44,7 @@ export default {
     addLabel: '添加标签',
     enterLabelName: '输入新标签名称',
     selectLabelFirst: '请先选择一个标签',
+    noLabels: '无可选标签，请先完善标签列表',
     originalFiles: '原始文件',
     annotationResults: '标注结果',
     realTimeSync: '标签同步：',

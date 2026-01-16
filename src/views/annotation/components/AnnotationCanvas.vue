@@ -1041,6 +1041,20 @@ const handleStageMouseDown = (e: any) => {
     }
 
     if (!currentTool.value || !imageObj.value) return
+    
+    // Check if there are labels available
+    let hasAvailableLabels = false
+    if (props.activeLabelSet) {
+        hasAvailableLabels = props.activeLabelSet.labels.length > 0
+    } else {
+        hasAvailableLabels = labelSets.value.some(s => s.labels.length > 0)
+    }
+    
+    if (!hasAvailableLabels) {
+        message.warning(t('annotation.noLabels'))
+        return
+    }
+
     if (selectedAnnotationId.value) {
         store.selectedAnnotationId = null
     }
@@ -1146,35 +1160,73 @@ const handleStageMouseUp = () => {
 }
 
 const finishDrawing = () => {
-    if (!currentLabelId.value) {
-        message.warning(t('annotation.selectLabelFirst'))
-        isDrawing.value = false
-        drawingShape.value = {}
-        return
+    // Check if label list is empty
+    if (!props.activeLabelSet || props.activeLabelSet.labels.length === 0) {
+        // If there are other label sets, we might fallback, but if total labels are 0, warn
+        let hasAnyLabels = labelSets.value.some(s => s.labels.length > 0)
+        
+        if (!hasAnyLabels) {
+             message.warning(t('annotation.noLabels'))
+             isDrawing.value = false
+             drawingShape.value = {}
+             return
+        }
     }
 
     // Determine label color
     let color = '#000000'
-    
-    // Check activeLabelSet first
-    if (props.activeLabelSet) {
-        const l = props.activeLabelSet.labels.find(x => x.id === currentLabelId.value)
-        if (l) color = l.color
+    let targetLabelId = currentLabelId.value
+
+    // If no current label selected (empty default), try to pick first available
+    if (!targetLabelId) {
+         if (props.activeLabelSet && props.activeLabelSet.labels.length > 0) {
+             const firstLabel = props.activeLabelSet.labels[0]
+             if (firstLabel) {
+                targetLabelId = firstLabel.id
+                color = firstLabel.color
+             }
+         } else {
+             // Find first available in any set
+             for(const set of labelSets.value) {
+                 if (set.labels.length > 0) {
+                     const firstLabel = set.labels[0]
+                     if (firstLabel) {
+                        targetLabelId = firstLabel.id
+                        color = firstLabel.color
+                        break
+                     }
+                 }
+             }
+         }
     } else {
-        // Fallback
-        for(const set of labelSets.value) {
-            const l = set.labels.find(x => x.id === currentLabelId.value)
-            if (l) {
-                color = l.color
-                break
+        // Check activeLabelSet first
+        if (props.activeLabelSet) {
+            const l = props.activeLabelSet.labels.find(x => x.id === targetLabelId)
+            if (l) color = l.color
+        } else {
+            // Fallback
+            for(const set of labelSets.value) {
+                const l = set.labels.find(x => x.id === targetLabelId)
+                if (l) {
+                    color = l.color
+                    break
+                }
             }
         }
+    }
+    
+    // If still no label ID found (should be caught by empty check above, but safe guard)
+    if (!targetLabelId) {
+         message.warning(t('annotation.selectLabelFirst'))
+         isDrawing.value = false
+         drawingShape.value = {}
+         return
     }
 
     const newAnn: Annotation = {
         id: crypto.randomUUID(),
         type: currentTool.value as any,
-        labelId: currentLabelId.value,
+        labelId: targetLabelId,
         color: color
     }
 

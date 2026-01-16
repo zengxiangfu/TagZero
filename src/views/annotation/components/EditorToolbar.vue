@@ -194,13 +194,13 @@ const emit = defineEmits<{
 .icon-rect { 
     width: 14px; 
     height: 14px; 
-    border: 2px solid currentColor; 
+    background-color: currentColor; 
     box-sizing: border-box; 
 }
 .icon-circle { 
     width: 14px; 
     height: 14px; 
-    border: 2px solid currentColor; 
+    background-color: currentColor; 
     border-radius: 50%; 
     box-sizing: border-box; 
 }
@@ -213,9 +213,9 @@ const emit = defineEmits<{
     transform: translateY(-2px); /* Optically center the triangle */
 }
 .icon-polygon { 
-    width: 14px; 
-    height: 14px; 
-    border: 2px solid currentColor; 
+    width: 12px; 
+    height: 12px; 
+    background-color: currentColor; 
     transform: rotate(45deg); 
     box-sizing: border-box; 
 }

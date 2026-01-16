@@ -18,6 +18,15 @@
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M64 464l384-208L64 48v416z" fill="currentColor"/></svg>
                         </n-icon>
                     </div>
+                    
+                    <!-- Shape Icon (Solid color) -->
+                    <div 
+                        class="shape-icon" 
+                        :style="{ backgroundColor: ann.color }"
+                        :class="getShapeClass(ann.type)"
+                    >
+                    </div>
+
                     <span 
                         class="clickable-label" 
                         :class="{ 'selected-text': selectedAnnotationId === ann.id }"
@@ -26,9 +35,6 @@
                         {{ getLabelName(ann.labelId) }}
                     </span>
                 </div>
-                <n-tag size="small" :bordered="false" :color="{ color: ann.color + '20', textColor: ann.color }">
-                    {{ t('shapes.' + ann.type) }}
-                </n-tag>
                 <n-button size="tiny" type="error" text @click.stop="store.removeAnnotation(ann.id)">
                     X
                 </n-button>
@@ -87,6 +93,7 @@ const currentContextLabelName = computed(() => {
 })
 
 const openContextMenu = (e: MouseEvent, id: string) => {
+    store.selectedAnnotationId = id
     contextMenuAnnotationId.value = id
     contextMenuX.value = e.clientX
     contextMenuY.value = e.clientY
@@ -108,6 +115,16 @@ const getLabelName = (id: string) => {
     if (!props.activeLabelSet) return id
     const label = props.activeLabelSet.labels.find(l => l.id === id)
     return label ? label.name : id
+}
+
+const getShapeClass = (type: string) => {
+    switch (type) {
+        case 'rect': return 'shape-rect'
+        case 'circle': return 'shape-circle'
+        case 'polygon': return 'shape-polygon'
+        case 'triangle': return 'shape-triangle'
+        default: return 'shape-rect'
+    }
 }
 
 const handleLabelChange = (annId: string, newLabelId: string) => {
@@ -161,5 +178,28 @@ const handleLabelChange = (annId: string, newLabelId: string) => {
 .game-cursor {
     animation: game-float 1s ease-in-out infinite;
     filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.2));
+}
+
+.shape-icon {
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.shape-rect {
+    /* Square */
+}
+
+.shape-circle {
+    border-radius: 50%;
+}
+
+.shape-polygon {
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.shape-triangle {
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
 }
 </style>

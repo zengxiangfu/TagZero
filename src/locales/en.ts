@@ -44,6 +44,7 @@ export default {
     addLabel: 'Add Label',
     enterLabelName: 'Enter new label name',
     selectLabelFirst: 'Please select a label first',
+    noLabels: 'No selectable labels, please complete the label list first',
     originalFiles: 'Original Files',
     annotationResults: 'Annotation Results',
     realTimeSync: 'Label Sync:',

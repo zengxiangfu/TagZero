@@ -1,39 +1,41 @@
 <template>
-    <div
-        v-if="visible"
-        ref="menuRef"
-        class="custom-context-menu"
-        :style="{ left: x + 'px', top: y + 'px' }"
-        @mousedown.stop
-        @contextmenu.prevent
-    >
-        <div class="menu-header">
-            <n-input 
-                v-model:value="searchValue" 
-                size="small" 
-                placeholder="Search..." 
-                clearable
-                autofocus
-                @click.stop
-                @keydown.stop
-                @input="handleSearchInput"
-            />
-        </div>
-        <div class="menu-list">
-            <div 
-                v-for="label in filteredLabels" 
-                :key="label.id"
-                class="menu-item"
-                @click="handleSelect(label.id)"
-            >
-                <div class="color-dot" :style="{ backgroundColor: label.color }"></div>
-                <span>{{ label.name }}{{ label.value ? ` [${label.value}]` : '' }}</span>
+    <Teleport to="body">
+        <div
+            v-if="visible"
+            ref="menuRef"
+            class="custom-context-menu"
+            :style="{ left: x + 'px', top: y + 'px' }"
+            @mousedown.stop
+            @contextmenu.prevent
+        >
+            <div class="menu-header">
+                <n-input 
+                    v-model:value="searchValue" 
+                    size="small" 
+                    placeholder="Search..." 
+                    clearable
+                    autofocus
+                    @click.stop
+                    @keydown.stop
+                    @input="handleSearchInput"
+                />
             </div>
-            <div v-if="filteredLabels.length === 0" class="menu-empty">
-                {{ t('common.noData') }}
+            <div class="menu-list">
+                <div 
+                    v-for="label in filteredLabels" 
+                    :key="label.id"
+                    class="menu-item"
+                    @click="handleSelect(label.id)"
+                >
+                    <div class="color-dot" :style="{ backgroundColor: label.color }"></div>
+                    <span>{{ label.name }}{{ label.value ? ` [${label.value}]` : '' }}</span>
+                </div>
+                <div v-if="filteredLabels.length === 0" class="menu-empty">
+                    {{ t('common.noData') }}
+                </div>
             </div>
         </div>
-    </div>
+    </Teleport>
 </template>
 
 <script setup lang="ts">

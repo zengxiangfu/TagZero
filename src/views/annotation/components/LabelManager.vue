@@ -30,6 +30,7 @@
             <div 
                 v-for="label in currentLabelSet.labels" 
                 :key="label.id"
+                :id="`label-item-${label.id}`"
                 class="label-chip"
                 :class="{ 'selected-label': currentLabelId === label.id }"
                 :style="{ 
@@ -79,7 +80,7 @@
         aria-modal="true"
       >
         <n-space vertical>
-            <n-input v-model:value="newLabelName" :placeholder="t('annotation.labelName')" />
+            <n-input v-model:value="newLabelName" :placeholder="t('labelConfig.labelNamePlaceholder')" />
             <n-input v-model:value="newLabelValue" :placeholder="t('labelConfig.labelValuePlaceholder')" />
             <n-color-picker v-model:value="newLabelColor" :show-alpha="false" :swatches="PRESET_COLORS" />
             <n-space justify="end">
@@ -93,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { 
   NButton, NCollapse, NCollapseItem, NSwitch, NTooltip, NIcon, NSelect, 
@@ -107,7 +108,7 @@ import type { LabelSet } from '../../../types'
 const { t } = useI18n()
 const store = useEditorStore()
 const labelStore = useLabelStore()
-const { currentLabelId } = storeToRefs(store)
+const { currentLabelId, selectedAnnotationId, currentAnnotations } = storeToRefs(store)
 
 const emit = defineEmits<{
     (e: 'update:activeLabelSet', value: LabelSet | null): void
@@ -245,6 +246,30 @@ const handleDeleteLabel = (labelId: string) => {
         store.currentLabelId = null
     }
 }
+
+// Watch selectedAnnotationLabelId to sync currentLabelId
+const selectedAnnotationLabelId = computed(() => {
+    if (!selectedAnnotationId.value || !currentAnnotations.value) return null
+    const ann = currentAnnotations.value.find(a => a.id === selectedAnnotationId.value)
+    return ann ? ann.labelId : null
+})
+
+watch(selectedAnnotationLabelId, (newLabelId) => {
+    if (newLabelId) {
+        store.currentLabelId = newLabelId
+    }
+})
+
+// Watch currentLabelId to auto-scroll
+watch(currentLabelId, async (newId) => {
+    if (newId) {
+        await nextTick()
+        const element = document.getElementById(`label-item-${newId}`)
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+    }
+})
 </script>
 
 <style scoped>
