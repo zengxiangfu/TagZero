@@ -218,15 +218,14 @@
       </v-layer>
     </v-stage>
 
-    <n-dropdown
-        placement="bottom-start"
-        trigger="manual"
+    <ContextMenu
+        v-model:visible="showContextMenu"
         :x="contextMenuX"
         :y="contextMenuY"
-        :options="contextMenuOptions"
-        :show="showContextMenu"
-        :on-clickoutside="closeContextMenu"
+        :labels="availableLabels"
+        :current-label-name="currentContextLabelName"
         @select="handleMenuSelect"
+        @close="closeContextMenu"
     />
   </div>
 </template>
@@ -244,8 +243,9 @@ import { useEditorStore } from '../../../stores/editor'
 import { useLabelStore } from '../../../stores/labelStore'
 import { useAlignment } from '../composables/useAlignment'
 import { storeToRefs } from 'pinia'
-import type { Annotation, LabelSet } from '../../../types'
-import { NDropdown, useMessage } from 'naive-ui'
+import type { Annotation, LabelSet, LabelItem } from '../../../types'
+import { useMessage, NInput } from 'naive-ui'
+import ContextMenu from './ContextMenu.vue'
 
 defineOptions({
   name: 'AnnotationCanvas'
@@ -282,65 +282,63 @@ const wrapperRef = ref<HTMLDivElement | null>(null)
 const stageRef = ref(null)
 const transformerRef = ref(null)
 
+const contextMenuRef = ref<HTMLDivElement | null>(null)
+
 // Context Menu State
 const showContextMenu = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
 const contextMenuAnnotationId = ref<string | null>(null)
 
-const contextMenuOptions = computed(() => {
-    if (!contextMenuAnnotationId.value) return []
-    
+// Computed for current label name
+const currentContextLabelName = computed(() => {
+    if (!contextMenuAnnotationId.value) return ''
     const ann = currentAnnotations.value.find(a => a.id === contextMenuAnnotationId.value)
-    if (!ann) return []
+    if (!ann) return ''
+    
+    for(const set of labelSets.value) {
+        const l = set.labels.find(lbl => lbl.id === ann.labelId)
+        if (l) return l.name
+    }
+    return ''
+})
 
-    // Use activeLabelSet if available, otherwise fallback to finding in store
+// Get available labels for context menu
+const availableLabels = computed(() => {
     let targetSet: LabelSet | null | undefined = props.activeLabelSet
     
     if (!targetSet) {
-        // Try to find the label set containing this annotation's label
-        targetSet = labelSets.value.find(set => set.labels.some(l => l.id === ann.labelId))
+        if (contextMenuAnnotationId.value) {
+             const ann = currentAnnotations.value.find(a => a.id === contextMenuAnnotationId.value)
+             if (ann) {
+                targetSet = labelSets.value.find(set => set.labels.some(l => l.id === ann.labelId))
+             }
+        }
         
-        // If not found, try to find set containing currentLabelId (active tool label)
         if (!targetSet && currentLabelId.value) {
             targetSet = labelSets.value.find(set => set.labels.some(l => l.id === currentLabelId.value))
         }
         
-        // Fallback to first set
         if (!targetSet && labelSets.value.length > 0) {
             targetSet = labelSets.value[0]
         }
     }
 
-    if (!targetSet) return []
-
-    return targetSet.labels.map(label => ({
-        label: () => h('span', { style: { color: 'black' } }, label.name),
-        key: label.id,
-        icon: () => h('div', {
-            style: {
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                backgroundColor: label.color,
-                display: 'inline-block'
-            }
-        })
-    }))
+    return targetSet ? targetSet.labels : []
 })
+
+const openContextMenu = (x: number, y: number, id: string) => {
+    store.selectedAnnotationId = id
+    contextMenuAnnotationId.value = id
+    contextMenuX.value = x
+    contextMenuY.value = y
+    showContextMenu.value = true
+}
 
 const handleContextMenu = (e: any, id: string) => {
     // Prevent default browser context menu
     e.evt.preventDefault()
-    
-    // Select the annotation
-    store.selectedAnnotationId = id
-    contextMenuAnnotationId.value = id
-    
-    // Position menu
-    contextMenuX.value = e.evt.clientX
-    contextMenuY.value = e.evt.clientY
-    showContextMenu.value = true
+    openContextMenu(e.evt.clientX, e.evt.clientY, id)
 }
 
 const closeContextMenu = () => {
@@ -350,30 +348,28 @@ const closeContextMenu = () => {
 
 const handleMenuSelect = (key: string) => {
     if (contextMenuAnnotationId.value) {
-        // Find label color
-        let color = '#000000'
+        // Find label
+        let label: LabelItem | undefined
         
         // Check activeLabelSet first
         if (props.activeLabelSet) {
-             const l = props.activeLabelSet.labels.find(x => x.id === key)
-             if (l) color = l.color
+             label = props.activeLabelSet.labels.find(x => x.id === key)
         } else {
              // Fallback
             for(const set of labelSets.value) {
-                const l = set.labels.find(x => x.id === key)
-                if (l) {
-                    color = l.color
-                    break
-                }
+                label = set.labels.find(x => x.id === key)
+                if (label) break
             }
         }
         
-        store.updateAnnotation(contextMenuAnnotationId.value, {
-            labelId: key,
-            color: color
-        })
+        if (label) {
+            store.updateAnnotation(contextMenuAnnotationId.value, {
+                labelId: key,
+                color: label.color
+            })
+        }
     }
-    closeContextMenu()
+    // Do not close menu on select, allowing user to change mind or see result
 }
 
 const stageSize = ref({ width: 800, height: 600 })
@@ -1222,9 +1218,25 @@ const finishDrawing = () => {
     isDrawing.value = false
     drawingShape.value = {}
 
-    // Auto-select the newly created annotation
+    // Auto-select the newly created annotation and show menu
     nextTick(() => {
         store.selectedAnnotationId = newAnn.id
+        
+        // Show context menu
+        const stage = (stageRef.value as any)?.getStage()
+        if (stage) {
+            const pointer = stage.getPointerPosition()
+            if (pointer) {
+                // Get stage container position
+                const container = stage.container()
+                const rect = container.getBoundingClientRect()
+                
+                const menuX = rect.left + pointer.x
+                const menuY = rect.top + pointer.y
+                
+                openContextMenu(menuX, menuY, newAnn.id)
+            }
+        }
     })
 }
 
@@ -1294,3 +1306,57 @@ watch(selectedAnnotationId, (newId) => {
   }
 })
 </script>
+
+<style scoped>
+.custom-context-menu {
+    position: fixed;
+    background: white;
+    border: 1px solid #eee;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    z-index: 1000;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.menu-header {
+    padding: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.menu-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    gap: 8px;
+    font-size: 13px;
+    color: #333;
+}
+
+.menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+.color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.menu-empty {
+    padding: 12px;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+}
+</style>

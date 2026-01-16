@@ -18,14 +18,13 @@
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M64 464l384-208L64 48v416z" fill="currentColor"/></svg>
                         </n-icon>
                     </div>
-                    <n-popselect
-                        :value="ann.labelId"
-                        :options="currentLabelOptions"
-                        @update:value="(val) => handleLabelChange(ann.id, val)"
-                        trigger="click"
+                    <span 
+                        class="clickable-label" 
+                        :class="{ 'selected-text': selectedAnnotationId === ann.id }"
+                        @click.stop="(e) => openContextMenu(e, ann.id)"
                     >
-                        <span class="clickable-label" :class="{ 'selected-text': selectedAnnotationId === ann.id }">{{ getLabelName(ann.labelId) }}</span>
-                    </n-popselect>
+                        {{ getLabelName(ann.labelId) }}
+                    </span>
                 </div>
                 <n-tag size="small" :bordered="false" :color="{ color: ann.color + '20', textColor: ann.color }">
                     {{ t('shapes.' + ann.type) }}
@@ -38,16 +37,27 @@
         </n-list-item>
     </n-list>
     </div>
+
+    <ContextMenu
+        v-model:visible="showContextMenu"
+        :x="contextMenuX"
+        :y="contextMenuY"
+        :labels="availableLabels"
+        :current-label-name="currentContextLabelName"
+        @select="handleMenuSelect"
+        @close="closeContextMenu"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NList, NListItem, NIcon, NPopselect, NSpace, NTag, NButton, NH3 } from 'naive-ui'
+import { NList, NListItem, NIcon, NSpace, NTag, NButton, NH3 } from 'naive-ui'
 import { useEditorStore } from '../../../stores/editor'
 import { storeToRefs } from 'pinia'
 import type { LabelSet } from '../../../types'
+import ContextMenu from './ContextMenu.vue'
 
 const props = defineProps<{
   activeLabelSet: LabelSet | null
@@ -57,10 +67,42 @@ const { t } = useI18n()
 const store = useEditorStore()
 const { currentAnnotations, selectedAnnotationId } = storeToRefs(store)
 
-const currentLabelOptions = computed(() => {
-    if (!props.activeLabelSet) return []
-    return props.activeLabelSet.labels.map(l => ({ label: l.name, value: l.id }))
+// Context Menu State
+const showContextMenu = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuAnnotationId = ref<string | null>(null)
+
+const availableLabels = computed(() => {
+    return props.activeLabelSet ? props.activeLabelSet.labels : []
 })
+
+const currentContextLabelName = computed(() => {
+    if (!contextMenuAnnotationId.value || !props.activeLabelSet) return ''
+    const ann = currentAnnotations.value.find(a => a.id === contextMenuAnnotationId.value)
+    if (!ann) return ''
+    
+    const label = props.activeLabelSet.labels.find(l => l.id === ann.labelId)
+    return label ? label.name : ''
+})
+
+const openContextMenu = (e: MouseEvent, id: string) => {
+    contextMenuAnnotationId.value = id
+    contextMenuX.value = e.clientX
+    contextMenuY.value = e.clientY
+    showContextMenu.value = true
+}
+
+const closeContextMenu = () => {
+    showContextMenu.value = false
+    contextMenuAnnotationId.value = null
+}
+
+const handleMenuSelect = (labelId: string) => {
+    if (contextMenuAnnotationId.value) {
+        handleLabelChange(contextMenuAnnotationId.value, labelId)
+    }
+}
 
 const getLabelName = (id: string) => {
     if (!props.activeLabelSet) return id
