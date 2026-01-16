@@ -70,6 +70,30 @@
           {{ t('toolbar.resetZoom') }}
         </n-tooltip>
       </div>
+
+      <div class="capsule-button-group">
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-popselect v-model:value="store.magnifierZoom" :options="zoomOptions" trigger="click">
+              <n-button strong>
+                {{ store.magnifierZoom }}x
+              </n-button>
+            </n-popselect>
+          </template>
+          {{ t('toolbar.magnifierZoom') }}
+        </n-tooltip>
+
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-popselect v-model:value="store.magnifierSize" :options="sizeOptions" trigger="click">
+              <n-button strong>
+                {{ store.magnifierSize }}px
+              </n-button>
+            </n-popselect>
+          </template>
+          {{ t('toolbar.magnifierSize') }}
+        </n-tooltip>
+      </div>
     </div>
 
     <div style="flex: 1"></div>
@@ -138,7 +162,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { NButton, NIcon, NTooltip } from 'naive-ui'
+import { NButton, NIcon, NTooltip, NPopselect } from 'naive-ui'
 import { useEditorStore } from '../../../stores/editor'
 import { storeToRefs } from 'pinia'
 
@@ -149,6 +173,22 @@ const { currentTool } = storeToRefs(store)
 const emit = defineEmits<{
   (e: 'export'): void
 }>()
+
+const zoomOptions = [
+    { label: '1倍', value: 1 },
+    { label: '2倍', value: 2 },
+    { label: '4倍', value: 4 },
+    { label: '8倍', value: 8 },
+    { label: '16倍', value: 16 }
+]
+
+const sizeOptions = [
+    { label: '200px', value: 200 },
+    { label: '300px', value: 300 },
+    { label: '400px', value: 400 },
+    { label: '500px', value: 500 },
+    { label: '600px', value: 600 }
+]
 </script>
 
 <style scoped>

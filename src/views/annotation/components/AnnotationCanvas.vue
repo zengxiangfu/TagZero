@@ -218,6 +218,16 @@
       </v-layer>
     </v-stage>
 
+    <Magnifier
+        :visible="showMagnifier"
+        :image="imageObj"
+        :annotations="sortedAnnotations"
+        :stage-config="magnifierConfig"
+        :container="wrapperRef"
+        :zoom-level="store.magnifierZoom"
+        :size="store.magnifierSize"
+    />
+
     <ContextMenu
         v-model:visible="showContextMenu"
         :x="contextMenuX"
@@ -246,6 +256,8 @@ import { storeToRefs } from 'pinia'
 import type { Annotation, LabelSet, LabelItem } from '../../../types'
 import { useMessage, NInput } from 'naive-ui'
 import ContextMenu from './ContextMenu.vue'
+import Magnifier from './Magnifier.vue'
+import { useElementBounding, useMagicKeys } from '@vueuse/core'
 
 defineOptions({
   name: 'AnnotationCanvas'
@@ -281,6 +293,29 @@ const sortedAnnotations = computed(() => {
 const wrapperRef = ref<HTMLDivElement | null>(null)
 const stageRef = ref(null)
 const transformerRef = ref(null)
+
+const { z } = useMagicKeys()
+const showMagnifier = ref(false)
+const wrapperBounding = useElementBounding(wrapperRef)
+
+if (z) {
+    watch(z, (pressed) => {
+        // Disable if typing
+        const activeEl = document.activeElement
+        if (activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement) {
+            showMagnifier.value = false
+            return
+        }
+        showMagnifier.value = pressed
+        
+        // Hide/Show default cursor
+        if (pressed) {
+            document.body.style.cursor = 'none'
+        } else {
+            document.body.style.cursor = ''
+        }
+    })
+}
 
 const contextMenuRef = ref<HTMLDivElement | null>(null)
 
@@ -382,6 +417,12 @@ const stageConfig = computed(() => ({
     scaleY: store.stageConfig.scale,
     x: store.stageConfig.x,
     y: store.stageConfig.y
+}))
+
+const magnifierConfig = computed(() => ({
+    x: store.stageConfig.x + groupConfig.value.x * store.stageConfig.scale,
+    y: store.stageConfig.y + groupConfig.value.y * store.stageConfig.scale,
+    scale: store.stageConfig.scale * groupConfig.value.scaleX
 }))
 
 defineExpose({

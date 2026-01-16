@@ -64,7 +64,9 @@ export default {
     redo: '重做',
     zoomIn: '放大',
     zoomOut: '缩小',
-    resetZoom: '重置缩放'
+    resetZoom: '重置缩放',
+    magnifierZoom: '放大镜倍数',
+    magnifierSize: '放大镜尺寸'
   },
   labelConfig: {
     editSet: '编辑标签集',

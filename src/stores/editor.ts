@@ -17,6 +17,10 @@ export const useEditorStore = defineStore('editor', () => {
   })
   const isDrawing = ref(false)
 
+  // Magnifier Settings
+  const magnifierZoom = ref(2)
+  const magnifierSize = ref(300)
+
   // History Stacks
   const undoStack = ref<string[]>([])
   const redoStack = ref<string[]>([])
@@ -159,6 +163,8 @@ export const useEditorStore = defineStore('editor', () => {
     currentTool,
     stageConfig,
     isDrawing,
+    magnifierZoom,
+    magnifierSize,
     undoStack,
     redoStack,
     canUndo,
