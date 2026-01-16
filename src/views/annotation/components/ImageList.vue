@@ -11,7 +11,7 @@
         {{ t('annotation.originalFiles') }}
     </div>
 
-    <n-list hoverable clickable style="flex: 1; overflow-y: auto; overflow-x: hidden;">
+    <n-list hoverable clickable style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 2px;">
       <n-list-item
         v-for="(img, index) in images"
         :key="img.id"
@@ -28,9 +28,11 @@
       </n-list-item>
     </n-list>
       <!-- Add button at bottom if needed -->
-      <div v-if="images.length > 0" style="padding: 10px; text-align: center; border-top: 1px solid #eee;">
-           <n-button size="small" @click="emit('triggerUpload', 'multiple')">
-              + {{ t('common.add') }}
+      <div v-if="images.length > 0" style="padding: 8px 4px; border-top: 1px solid #eee; overflow: hidden;">
+           <n-button block size="small" @click="emit('triggerUpload', 'multiple')" :title="t('common.continueAdd')">
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                 + {{ t('common.continueAdd') }}
+              </span>
            </n-button>
       </div>
       
@@ -47,7 +49,7 @@ import { NLayoutSider, NList, NListItem, NButton } from 'naive-ui'
 import { useEditorStore } from '../../../stores/editor'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { useWindowSize } from '@vueuse/core'
+import { useWindowSize, useStorage } from '@vueuse/core'
 
 const props = defineProps<{
   unannotatedImageIds: Set<string>
@@ -62,17 +64,17 @@ const store = useEditorStore()
 const { images, currentImageId } = storeToRefs(store)
 
 const { width: windowWidth } = useWindowSize()
-const siderWidth = ref(windowWidth.value * 0.15)
+const siderWidth = useStorage('tagzero-original-files-width', windowWidth.value * 0.08)
 const isResizing = ref(false)
 const startX = ref(0)
 const startWidth = ref(0)
 
 watch(windowWidth, (newW) => {
-    const min = newW * 0.10
+    const min = newW * 0.05
     const max = newW * 0.16
     if (siderWidth.value < min) siderWidth.value = min
     if (siderWidth.value > max) siderWidth.value = max
-})
+}, { immediate: true })
 
 const startResize = (e: MouseEvent) => {
     isResizing.value = true
@@ -88,7 +90,7 @@ const handleResize = (e: MouseEvent) => {
     if (!isResizing.value) return
     const delta = e.clientX - startX.value
     let newWidth = startWidth.value + delta
-    const min = windowWidth.value * 0.10
+    const min = windowWidth.value * 0.05
     const max = windowWidth.value * 0.16
     
     if (newWidth < min) newWidth = min
@@ -187,6 +189,34 @@ const stopResize = () => {
 }
 .selected-image {
     background-color: #e6f7ff;
+    background-image: 
+        linear-gradient(90deg, #1890ff 50%, transparent 50%),
+        linear-gradient(90deg, #1890ff 50%, transparent 50%),
+        linear-gradient(180deg, #1890ff 50%, transparent 50%),
+        linear-gradient(180deg, #1890ff 50%, transparent 50%);
+    background-size: 
+        20px 2px,
+        20px 2px,
+        2px 20px,
+        2px 20px;
+    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+    animation: ants 1s linear infinite;
+}
+@keyframes ants {
+    0% {
+        background-position: 
+            0 0,
+            0 100%,
+            0 0,
+            100% 0;
+    }
+    100% {
+        background-position: 
+            20px 0,
+            -20px 100%,
+            0 -20px,
+            100% 20px;
+    }
 }
 .resize-handle {
     position: absolute;

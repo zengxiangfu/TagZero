@@ -93,15 +93,16 @@ export function useShortcuts() {
         // 4. Canvas View Control
         
         // Esc
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && !isTyping()) {
             e.preventDefault()
             // If drawing polygon, cancel it (need support in store/canvas, currently logic is in Canvas component)
             // If selected, deselect
             if (selectedAnnotationId.value) {
                 store.selectedAnnotationId = null
+            } else {
+                // Dispatch event for Canvas to handle drawing cancellation
+                window.dispatchEvent(new CustomEvent('shortcut-esc'))
             }
-            // Dispatch event for Canvas to handle drawing cancellation
-            window.dispatchEvent(new CustomEvent('shortcut-esc'))
         }
 
         // Zoom (Ctrl + = / - / 0)
