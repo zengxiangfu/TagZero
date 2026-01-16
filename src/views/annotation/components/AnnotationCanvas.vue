@@ -27,7 +27,7 @@
                 draggable: true,
                 name: ann.id,
                 dragBoundFunc: getDragBoundFunc(),
-                listening: !isDrawing // Allow selection if not strictly drawing
+                listening: !isDrawing && !showMagnifier // Allow selection if not strictly drawing
               }"
               @mousedown="handleSelect($event, ann.id)"
               @dragstart="handleShapeDragStart($event, ann.id)"
@@ -49,7 +49,7 @@
                 draggable: true,
                 name: ann.id,
                 dragBoundFunc: getDragBoundFunc(),
-                listening: !isDrawing // Allow selection if not strictly drawing
+                listening: !isDrawing && !showMagnifier // Allow selection if not strictly drawing
               }"
                @mousedown="handleSelect($event, ann.id)"
                @dragstart="handleShapeDragStart($event, ann.id)"
@@ -70,7 +70,7 @@
                  draggable: true,
                  name: ann.id,
                  dragBoundFunc: getDragBoundFunc(),
-                 listening: !isDrawing // Allow selection if not strictly drawing
+                 listening: !isDrawing && !showMagnifier // Allow selection if not strictly drawing
                }"
                @mousedown="handleSelect($event, ann.id)"
                @dragstart="handleShapeDragStart($event, ann.id)"
@@ -123,7 +123,8 @@
                         stroke: ann.color,
                         strokeWidth: 2 / groupConfig.scaleX,
                         draggable: true,
-                        dragBoundFunc: getAnchorDragBoundFunc()
+                        dragBoundFunc: getAnchorDragBoundFunc(),
+                        listening: !showMagnifier
                     }"
                     @dragstart="handleAnchorDragStart($event, ann.id)"
                     @dragmove="handleAnchorDragMove($event, ann.id, index)"
@@ -144,7 +145,8 @@
                             stroke: ann.color,
                             strokeWidth: 2 / groupConfig.scaleX,
                             draggable: true,
-                            dragBoundFunc: getAnchorDragBoundFunc()
+                            dragBoundFunc: getAnchorDragBoundFunc(),
+                            listening: !showMagnifier
                         }"
                         @dragstart="handleMidpointDragStart($event, ann.id, point.insertIndex)"
                         @dragmove="handleMidpointDragMove($event, ann.id, point.insertIndex)"
@@ -1070,6 +1072,9 @@ const panningStart = ref({ x: 0, y: 0 })
 
 // Stage Events for Drawing
 const handleStageMouseDown = (e: any) => {
+    // Block interactions if magnifier is active
+    if (showMagnifier.value) return
+
     // Check for Right Click (button 2) for Panning
     if (e.evt.button === 2) {
         e.evt.preventDefault() // Prevent context menu on start
@@ -1334,6 +1339,9 @@ const finishDrawing = () => {
 }
 
 const handleSelect = (e: any, id: string) => {
+    // Block selection if magnifier is active
+    if (showMagnifier.value) return
+
     e.cancelBubble = true
     store.selectedAnnotationId = id
 }
