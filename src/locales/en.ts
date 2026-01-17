@@ -25,6 +25,7 @@ export default {
     edit: 'Edit',
     cancel: 'Cancel',
     confirm: 'Confirm',
+    close: 'Close',
     add: 'Add',
     addNew: 'Add New',
     continueAdd: 'Continue Adding',
@@ -86,5 +87,32 @@ export default {
       labelNameRequired: 'Label name cannot be empty',
       duplicateLabelName: 'Label name cannot be duplicate'
     }
+  },
+  shortcuts: {
+    title: 'Shortcut Settings',
+    pressKey: 'Press new key...',
+    categories: {
+        tools: 'Tools',
+        editing: 'Editing',
+        view: 'View',
+        navigation: 'Navigation'
+    },
+    toolRect: 'Rectangle Tool',
+    toolCircle: 'Circle Tool',
+    toolTriangle: 'Triangle Tool',
+    toolPolygon: 'Polygon Tool',
+    delete: 'Delete Selected',
+    undo: 'Undo',
+    redo: 'Redo',
+    save: 'Save/Export',
+    cancel: 'Cancel/Exit',
+    prevImage: 'Previous Image',
+    nextImage: 'Next Image',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    resetZoom: 'Reset Zoom',
+    toggleMagnifier: 'Toggle Magnifier',
+    reset: 'Reset',
+    resetAll: 'Reset All'
   }
 }

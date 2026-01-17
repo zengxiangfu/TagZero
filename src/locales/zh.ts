@@ -25,6 +25,7 @@ export default {
     edit: '编辑',
     cancel: '取消',
     confirm: '确认',
+    close: '关闭',
     add: '添加',
     addNew: '新增',
     continueAdd: '继续新增',
@@ -88,5 +89,32 @@ export default {
       labelNameRequired: '标签名称不能为空',
       duplicateLabelName: '标签名称不能重复'
     }
+  },
+  shortcuts: {
+    title: '快捷键设置',
+    pressKey: '请按下新快捷键...',
+    categories: {
+        tools: '工具',
+        editing: '编辑',
+        view: '视图',
+        navigation: '导航'
+    },
+    toolRect: '矩形工具',
+    toolCircle: '圆形工具',
+    toolTriangle: '三角形工具',
+    toolPolygon: '多边形工具',
+    delete: '删除选中',
+    undo: '撤销',
+    redo: '重做',
+    save: '保存/导出',
+    cancel: '取消/退出',
+    prevImage: '上一张',
+    nextImage: '下一张',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    resetZoom: '重置缩放',
+    toggleMagnifier: '切换放大镜',
+    reset: '恢复默认',
+    resetAll: '恢复全部默认设置'
   }
 }

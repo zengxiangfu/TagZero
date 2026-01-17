@@ -250,7 +250,8 @@ import type { Annotation, LabelSet, LabelItem } from '../../../types'
 import { useMessage, NInput } from 'naive-ui'
 import ContextMenu from './ContextMenu.vue'
 import Magnifier from './Magnifier.vue'
-import { useElementBounding, useMagicKeys } from '@vueuse/core'
+import { useElementBounding } from '@vueuse/core'
+import { useShortcutStore } from '../../../stores/shortcutStore'
 
 defineOptions({
   name: 'AnnotationCanvas'
@@ -263,6 +264,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const store = useEditorStore()
 const labelStore = useLabelStore()
+const shortcutStore = useShortcutStore()
 const message = useMessage()
 const { currentImage, currentAnnotations, selectedAnnotationId, currentTool, currentLabelId } = storeToRefs(store)
 const { labelSets } = storeToRefs(labelStore)
@@ -287,28 +289,38 @@ const wrapperRef = ref<HTMLDivElement | null>(null)
 const stageRef = ref(null)
 const transformerRef = ref(null)
 
-const { z } = useMagicKeys()
 const showMagnifier = ref(false)
 const wrapperBounding = useElementBounding(wrapperRef)
 
-if (z) {
-    watch(z, (pressed) => {
+const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    if (shortcutStore.matches('toggleMagnifier', e)) {
         // Disable if typing
         const activeEl = document.activeElement
         if (activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement) {
-            showMagnifier.value = false
             return
         }
-        showMagnifier.value = pressed
-        
-        // Hide/Show default cursor
-        if (pressed) {
-            document.body.style.cursor = 'none'
-        } else {
-            document.body.style.cursor = ''
-        }
-    })
+        showMagnifier.value = true
+        document.body.style.cursor = 'none'
+    }
 }
+
+const handleGlobalKeyUp = (e: KeyboardEvent) => {
+    const s = shortcutStore.getShortcut('toggleMagnifier')
+    if (s && e.key.toLowerCase() === s.key.toLowerCase()) {
+        showMagnifier.value = false
+        document.body.style.cursor = ''
+    }
+}
+
+onMounted(() => {
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    window.addEventListener('keyup', handleGlobalKeyUp)
+})
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleGlobalKeyDown)
+    window.removeEventListener('keyup', handleGlobalKeyUp)
+})
 
 const contextMenuRef = ref<HTMLDivElement | null>(null)
 

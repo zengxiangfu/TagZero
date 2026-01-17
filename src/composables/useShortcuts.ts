@@ -1,9 +1,11 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useEditorStore } from '../stores/editor'
+import { useShortcutStore } from '../stores/shortcutStore'
 import { storeToRefs } from 'pinia'
 
 export function useShortcuts() {
     const store = useEditorStore()
+    const shortcutStore = useShortcutStore()
     const { 
         currentImageId, 
         images, 
@@ -17,109 +19,91 @@ export function useShortcuts() {
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-        // Always allow shortcuts that use modifiers (Ctrl/Cmd) even if typing?
-        // Actually standard behavior is to allow Ctrl+S/Z etc. but block single keys like 'R'
-        
-        const isCtrlOrCmd = e.ctrlKey || e.metaKey
+        // Allow shortcuts if not typing, OR if modifiers are used (like Ctrl+S)
+        const typing = isTyping()
         
         // 1. Core Editing
         
         // Delete / Backspace
-        if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping()) {
+        if (shortcutStore.matches('delete', e) && !typing) {
             if (selectedAnnotationId.value) {
                 e.preventDefault()
                 store.removeAnnotation(selectedAnnotationId.value)
             }
         }
 
-        // Save / Export (Ctrl + S)
-        if (isCtrlOrCmd && (e.key === 's' || e.key === 'S')) {
+        // Save / Export
+        if (shortcutStore.matches('save', e)) {
             e.preventDefault()
-            // Dispatch custom event for view to handle export modal
             window.dispatchEvent(new CustomEvent('shortcut-export'))
         }
 
-        // Undo (Ctrl + Z)
-        if (isCtrlOrCmd && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        // Undo
+        if (shortcutStore.matches('undo', e)) {
             e.preventDefault()
             store.undo()
         }
 
-        // Redo (Ctrl + Shift + Z)
-        if (isCtrlOrCmd && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        // Redo
+        if (shortcutStore.matches('redo', e)) {
             e.preventDefault()
             store.redo()
         }
-
-        // Select All (Ctrl + A)
-        // We don't have a multi-select state yet, but let's reserve it or implement later.
-        // For now, maybe just log or ignore. 
-        // Requirement said: "Select all annotations". But our store only supports single selection (selectedAnnotationId).
-        // If we want to support batch operations later, we need selectedAnnotationIds array.
-        // For now, let's skip implementation or just select the first one?
-        // Let's implement it as: Select the last annotation (simulate selecting something) or ignore.
-        // Given current architecture is single select, we can't fully implement "Select All".
         
         // 2. Navigation
-        if (!isTyping() && !isCtrlOrCmd) {
-            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+        if (!typing) {
+            if (shortcutStore.matches('prevImage', e)) {
                 e.preventDefault()
                 navigateImage(-1)
             }
-            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+            if (shortcutStore.matches('nextImage', e)) {
                 e.preventDefault()
                 navigateImage(1)
             }
         }
 
         // 3. Tool Switching
-        if (!isTyping() && !isCtrlOrCmd) {
-            switch (e.key.toLowerCase()) {
-                case 'r':
-                    store.setTool('rect')
-                    break
-                case 'c':
-                    store.setTool('circle')
-                    break
-                case 't':
-                    store.setTool('triangle')
-                    break
-                case 'p':
-                    store.setTool('polygon')
-                    break
-            }
+        if (!typing) {
+            if (shortcutStore.matches('toolRect', e)) store.setTool('rect')
+            if (shortcutStore.matches('toolCircle', e)) store.setTool('circle')
+            if (shortcutStore.matches('toolTriangle', e)) store.setTool('triangle')
+            if (shortcutStore.matches('toolPolygon', e)) store.setTool('polygon')
         }
 
         // 4. Canvas View Control
         
         // Esc
-        if (e.key === 'Escape' && !isTyping()) {
+        if (shortcutStore.matches('cancel', e) && !typing) {
             e.preventDefault()
-            // If drawing polygon, cancel it (need support in store/canvas, currently logic is in Canvas component)
-            // If selected, deselect
             if (selectedAnnotationId.value) {
                 store.selectedAnnotationId = null
             } else {
-                // Dispatch event for Canvas to handle drawing cancellation
                 window.dispatchEvent(new CustomEvent('shortcut-esc'))
             }
         }
 
-        // Zoom (Ctrl + = / - / 0)
-        if (isCtrlOrCmd) {
-            if (e.key === '=' || e.key === '+') {
-                e.preventDefault()
-                store.zoomIn()
-            }
-            if (e.key === '-' || e.key === '_') {
-                e.preventDefault()
-                store.zoomOut()
-            }
-            if (e.key === '0') {
-                e.preventDefault()
-                store.resetZoom()
-            }
+        // Zoom
+        if (shortcutStore.matches('zoomIn', e)) {
+            e.preventDefault()
+            store.zoomIn()
         }
+        if (shortcutStore.matches('zoomOut', e)) {
+            e.preventDefault()
+            store.zoomOut()
+        }
+        if (shortcutStore.matches('resetZoom', e)) {
+            e.preventDefault()
+            store.resetZoom()
+        }
+        
+        // Note: Toggle Magnifier (Z) is handled by AnnotationCanvas or should be moved here?
+        // Currently 'z' is handled as 'Undo' (Ctrl+Z).
+        // If 'z' (no modifiers) is 'toggleMagnifier', we can check:
+        // if (shortcutStore.matches('toggleMagnifier', e)) { ... }
+        // But the current implementation of magnifier is state-based (pressed), not toggle?
+        // README says "Z Key: Toggle Magnifier Switch". 
+        // Let's assume we might want to dispatch an event or check if we should support it here.
+        // For now, I'll leave Magnifier logic as is in Canvas component unless requested to move it.
     }
 
     const navigateImage = (direction: number) => {
