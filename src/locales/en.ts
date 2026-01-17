@@ -5,8 +5,12 @@ export default {
   },
   common: {
     upload: 'Upload',
-    export: 'Export Data',
+    import: 'Import Config',
+    importSuccess: 'Import successful',
+    importFailed: 'Import failed',
+    export: 'Export Config',
     exportSuccess: 'Export successful',
+    exportFailed: 'Export failed',
     exportFormat: 'Export Format',
     selectExportFormat: 'Select Export Format',
     unannotatedWarning: 'There are {count} unannotated original files. The background color of their indices has been changed to <span style="color: #d03050">red</span>. Please confirm whether to continue exporting data.',

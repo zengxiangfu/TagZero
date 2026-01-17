@@ -26,7 +26,7 @@
                 strokeWidth: 2 / groupConfig.scaleX,
                 draggable: true,
                 name: ann.id,
-                dragBoundFunc: getDragBoundFunc(),
+                dragBoundFunc: getDragBoundFunc(ann),
                 listening: !isDrawing && !showMagnifier // Allow selection if not strictly drawing
               }"
               @mousedown="handleSelect($event, ann.id)"
@@ -48,7 +48,7 @@
                 strokeWidth: 2 / groupConfig.scaleX,
                 draggable: true,
                 name: ann.id,
-                dragBoundFunc: getDragBoundFunc(),
+                dragBoundFunc: getDragBoundFunc(ann),
                 listening: !isDrawing && !showMagnifier // Allow selection if not strictly drawing
               }"
                @mousedown="handleSelect($event, ann.id)"
@@ -69,7 +69,7 @@
                 strokeWidth: 2 / groupConfig.scaleX,
                  draggable: true,
                  name: ann.id,
-                 dragBoundFunc: getDragBoundFunc(),
+                 dragBoundFunc: getDragBoundFunc(ann),
                  listening: !isDrawing && !showMagnifier // Allow selection if not strictly drawing
                }"
                @mousedown="handleSelect($event, ann.id)"
@@ -85,6 +85,7 @@
                 <v-line
                    v-if="ann.type !== 'circle'"
                    :config="{
+                     name: `preview-${ann.id}`,
                      points: getPreviewPoints(ann),
                      closed: true,
                      stroke: ann.color,
@@ -95,7 +96,7 @@
                      shadowOpacity: 0.8,
                      listening: !showMagnifier && ann.type !== 'rect',
                      draggable: ann.type !== 'rect',
-                     dragBoundFunc: getDragBoundFunc()
+                     dragBoundFunc: getDragBoundFunc(ann)
                    }"
                    @dragstart="handleShapeDragStart($event, ann.id)"
                    @dragmove="handleShapeDragMove($event, ann.id)"
@@ -143,28 +144,7 @@
                     @dblclick="handleVertexDblClick($event, ann.id, index)"
                 />
                 
-                <!-- Midpoints -->
-                <template v-if="ann.type === 'polygon'">
-                    <v-circle
-                        v-for="(midpoint, idx) in getMidpoints(editingPoints || getEditablePoints(ann))"
-                        :key="`midpoint-${idx}`"
-                        :config="{
-                            x: midpoint.x,
-                            y: midpoint.y,
-                            radius: 4 / groupConfig.scaleX,
-                            fill: '#fff',
-                            stroke: ann.color,
-                            strokeWidth: 2 / groupConfig.scaleX,
-                            draggable: true,
-                            dragBoundFunc: getAnchorDragBoundFunc(),
-                            listening: !showMagnifier
-                        }"
-                        @dragstart="handleMidpointDragStart($event, ann.id, midpoint.index)"
-                        @dragmove="handleMidpointDragMove($event, ann.id, midpoint.index)"
-                        @dragend="handleMidpointDragEnd($event, ann.id, midpoint.index)"
-                        @mousedown="handleStopPropagation"
-                    />
-                </template>
+                <!-- Midpoints (Removed) -->
             </template>
           </template>
 
@@ -464,73 +444,10 @@ const getPointPairs = (points: number[]) => {
     return pairs
 }
 
-// Get midpoints for adding new vertices
-const getMidpoints = (points: number[]) => {
-    if (!points || points.length < 4) return []
-    const midpoints = []
-    const numPoints = points.length / 2
-    for (let i = 0; i < numPoints; i++) {
-        const nextIdx = (i + 1) % numPoints
-        midpoints.push({
-            x: ((points[i * 2] ?? 0) + (points[nextIdx * 2] ?? 0)) / 2,
-            y: ((points[i * 2 + 1] ?? 0) + (points[nextIdx * 2 + 1] ?? 0)) / 2,
-            index: i
-        })
-    }
-    return midpoints
-}
-
-const handleMidpointDragStart = (e: any, annId: string, index: number) => {
-    e.cancelBubble = true
-    const stage = e.target.getStage()
-    const pointer = stage.getPointerPosition()
-    
-    // Initialize editingPoints if needed
-    const ann = currentAnnotations.value.find(a => a.id === annId)
-    if (ann && !editingPoints.value) {
-         editingPoints.value = [...getEditablePoints(ann)]
-    }
-
-    draggingMidpointIndex.value = index
-    
-    // Initial pos from pointer mapped to local coords
-    const transform = e.target.getParent().getAbsoluteTransform().copy().invert()
-    const localPos = transform.point(pointer)
-    draggingMidpointPos.value = { x: localPos.x, y: localPos.y }
-}
-
-const handleMidpointDragMove = (e: any, _annId: string, _index: number) => {
-    e.cancelBubble = true
-    const stage = e.target.getStage()
-    const pointer = stage.getPointerPosition()
-    const transform = e.target.getParent().getAbsoluteTransform().copy().invert()
-    const localPos = transform.point(pointer)
-    
-    draggingMidpointPos.value = { x: localPos.x, y: localPos.y }
-}
-
-const handleMidpointDragEnd = (_e: any, annId: string, _index: number) => {
-    if (draggingMidpointIndex.value !== null && draggingMidpointPos.value && editingPoints.value) {
-        // Commit change
-        const insertIdx = (draggingMidpointIndex.value + 1) * 2
-        editingPoints.value.splice(insertIdx, 0, draggingMidpointPos.value.x, draggingMidpointPos.value.y)
-        
-        const ann = currentAnnotations.value.find(a => a.id === annId)
-        if (ann) {
-             store.updateAnnotation(annId, { points: [...editingPoints.value] })
-        }
-    }
-    
-    draggingMidpointIndex.value = null
-    draggingMidpointPos.value = null
-    editingPoints.value = null
-}
 
 // Watch selection change to clear editing state
 watch(selectedAnnotationId, () => {
     editingPoints.value = null
-    draggingMidpointIndex.value = null
-    draggingMidpointPos.value = null
 })
 
 // Helper to get editable points for any shape (Rect/Triangle/Polygon)
@@ -585,6 +502,7 @@ const getDisplayCircle = (ann: Annotation) => {
 
 const editingPoints = ref<number[] | null>(null)
 const isShapeDragging = ref(false)
+const isPreviewDragging = ref(false)
 
 const draggingMidpointIndex = ref<number | null>(null)
 const draggingMidpointPos = ref<{x: number, y: number} | null>(null)
@@ -609,8 +527,10 @@ const getDisplayPoints = (ann: Annotation) => {
 }
 
 const getPreviewPoints = (ann: Annotation) => {
-    // If shape is being dragged, return original points (let Konva handle translation)
-    if (isShapeDragging.value && selectedAnnotationId.value === ann.id) {
+    // If dragging the preview shape itself (which has Konva transform applied),
+    // we must return the original points to avoid double-transform.
+    // The "Preview Shape" is the one rendered in the selected template block.
+    if (selectedAnnotationId.value === ann.id && isShapeDragging.value && isPreviewDragging.value) {
         return getEditablePoints(ann)
     }
 
@@ -618,10 +538,19 @@ const getPreviewPoints = (ann: Annotation) => {
 }
 
 // 形状拖拽开始：初始化 editingPoints
-const handleShapeDragStart = (_e: any, annId: string) => {
+const handleShapeDragStart = (e: any, annId: string) => {
     const ann = currentAnnotations.value.find(a => a.id === annId)
     if (ann) {
         isShapeDragging.value = true
+        // Check if we are dragging the preview shape (identified by name or context)
+        // The preview shape has name={`preview-${ann.id}`}
+        const node = e.target
+        const name = node.name()
+        if (name === `preview-${ann.id}`) {
+            isPreviewDragging.value = true
+        } else {
+            isPreviewDragging.value = false
+        }
         editingPoints.value = [...getEditablePoints(ann)]
     }
 }
@@ -723,6 +652,57 @@ const handleShapeDragMove = (e: any, annId: string) => {
     editingPoints.value = newPoints
 }
 
+
+// Auto-insert vertices if segment > 40px (visual)
+const densifyPolygon = (points: number[]) => {
+    if (!points || points.length < 6) return points
+    
+    const newPoints: number[] = []
+    const count = points.length / 2
+    // Threshold: 40px in screen coordinates
+    const threshold = 40 / groupConfig.value.scaleX
+    
+    for (let i = 0; i < count; i++) {
+        const x1 = points[i * 2] ?? 0
+        const y1 = points[i * 2 + 1] ?? 0
+        const nextIdx = (i + 1) % count
+        const x2 = points[nextIdx * 2] ?? 0
+        const y2 = points[nextIdx * 2 + 1] ?? 0
+        
+        newPoints.push(x1, y1)
+        
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        
+        // If segment is long, insert midpoint
+        if (dist > threshold) {
+            newPoints.push((x1 + x2) / 2, (y1 + y2) / 2)
+        }
+    }
+    return newPoints
+}
+
+// Check and add midpoint for specific segment if > 40px
+const densifySegment = (points: number[], idx1: number, idx2: number) => {
+    const threshold = 40 / groupConfig.value.scaleX
+    
+    const x1 = points[idx1 * 2] ?? 0
+    const y1 = points[idx1 * 2 + 1] ?? 0
+    const x2 = points[idx2 * 2] ?? 0
+    const y2 = points[idx2 * 2 + 1] ?? 0
+    
+    const dx = x2 - x1
+    const dy = y2 - y1
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    
+    if (dist > threshold) {
+        // Return the midpoint
+        return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 }
+    }
+    return null
+}
+
 // 拖拽结束：更新 store
 const handleDragEnd = (e: any, annId: string) => {
     clearLines()
@@ -774,7 +754,12 @@ const handleDragEnd = (e: any, annId: string) => {
         // Reset node position to 0,0 since we updated points absolute coordinates
         node.position({x: 0, y: 0})
         
-        store.updateAnnotation(annId, { points: newPoints })
+        if (ann.type === 'polygon') {
+             // const densified = densifyPolygon(newPoints)
+             store.updateAnnotation(annId, { points: newPoints })
+        } else {
+             store.updateAnnotation(annId, { points: newPoints })
+        }
     }
     
     editingPoints.value = null
@@ -995,35 +980,74 @@ const handleAnchorDragEnd = (e: any, annId: string, index: number) => {
         // Update specific vertex
         points[index * 2] = nx
         points[index * 2 + 1] = ny
+        
+        if (ann.type === 'polygon') {
+             // Local densify: Check prev and next segments
+             const count = points.length / 2
+             const prevIdx = (index - 1 + count) % count
+             const nextIdx = (index + 1) % count
+             
+             // We need to handle insertions carefully because inserting changes indices
+             // Let's check next segment first (index -> nextIdx)
+             // Then check prev segment (prevIdx -> index)
+             
+             // 1. Check current -> next
+             const midNext = densifySegment(points, index, nextIdx)
+             // 2. Check prev -> current
+             const midPrev = densifySegment(points, prevIdx, index)
+             
+             let newPoints = [...points]
+             let offset = 0
+             
+             if (midNext) {
+                 // Insert after index
+                 // If nextIdx is 0 (loop around), we append to end (or splice at end)
+                 // Actually splice works with index + 1
+                 // But wait, if index is last element, nextIdx is 0. 
+                 // Splice at (index + 1) * 2 works for appending.
+                 
+                 // However, we should be careful if we have multiple insertions
+                 // Let's rebuild the array or use splice with offset
+                 
+                 // Insert after current index
+                 // Position: (index + 1) * 2
+                 newPoints.splice((index + 1) * 2, 0, midNext.x, midNext.y)
+                 offset = 1 // We added 1 point (2 coords)
+             }
+             
+             if (midPrev) {
+                 // Insert after prevIdx
+                 // If prevIdx is last element (loop around), we insert after it.
+                 // Position: (prevIdx + 1) * 2
+                 
+                 // Special case: if prevIdx is the last element, (prevIdx + 1) * 2 is end of array.
+                 // If we inserted midNext (and index was not last), indices shifted?
+                 
+                 // Let's simpler logic:
+                 // Construct new array
+                 
+                 const finalPoints: number[] = []
+                  for (let i = 0; i < count; i++) {
+                      finalPoints.push(points[i*2] ?? 0, points[i*2+1] ?? 0)
+                      
+                      // Check if we need to add after i
+                      if (i === index && midNext) {
+                          finalPoints.push(midNext.x, midNext.y)
+                      }
+                      if (i === prevIdx && midPrev) {
+                          finalPoints.push(midPrev.x, midPrev.y)
+                      }
+                  }
+                 newPoints = finalPoints
+             }
+             
+             points = newPoints
+        }
+
         store.updateAnnotation(annId, { points: points })
     }
     
     editingPoints.value = null
-}
-
-// 添加顶点辅助函数
-const addVertex = (annId: string, insertIndex: number, x: number, y: number) => {
-    const ann = currentAnnotations.value.find(a => a.id === annId)
-    if (!ann) return
-
-    let points: number[] = []
-    if (ann.type === 'rect' && ann.rect) {
-        const { x: rx, y: ry, width, height } = ann.rect
-        points = [rx, ry, rx + width, ry, rx + width, ry + height, rx, ry + height]
-        
-        // Insert new point
-        points.splice(insertIndex * 2, 0, x, y)
-
-        store.updateAnnotation(annId, { 
-            type: 'polygon', 
-            points: points,
-            rect: undefined
-        })
-    } else {
-        points = [...(ann.points || [])]
-        points.splice(insertIndex * 2, 0, x, y)
-        store.updateAnnotation(annId, { points: points })
-    }
 }
 
 // 辅助函数：计算点到线段的距离和投影点
@@ -1051,7 +1075,7 @@ const handleLineDblClick = (e: any, annId: string) => {
     const pointer = stage.getPointerPosition()
     if (!pointer) return
 
-    // 获取相对于 group 的坐标（因为 points 是相对于 group 的）
+    // 获取相对于 group 的坐标
     const transform = node.getAbsoluteTransform().copy()
     transform.invert()
     const pos = transform.point(pointer)
@@ -1059,6 +1083,19 @@ const handleLineDblClick = (e: any, annId: string) => {
     const points = ann.points || []
     if (points.length < 6) return
     
+    // 1. Fuzzy Delete Check (8px threshold)
+    const deleteThreshold = 8 / groupConfig.value.scaleX
+    for (let i = 0; i < points.length / 2; i++) {
+        const px = points[i * 2] ?? 0
+        const py = points[i * 2 + 1] ?? 0
+        const dist = Math.sqrt((pos.x - px) ** 2 + (pos.y - py) ** 2)
+        if (dist < deleteThreshold) {
+            handleVertexDblClick(e, annId, i)
+            return
+        }
+    }
+    
+    // 2. Add Point Logic
     let minDistance = Infinity
     let insertIndex = -1
     let insertPoint = { x: 0, y: 0 }
@@ -1080,9 +1117,13 @@ const handleLineDblClick = (e: any, annId: string) => {
         }
     }
     
-    // 阈值判断：如果距离太远（例如 > 20px），可能不是想在边上加点（尽管双击事件触发了）
-    // 但由于我们设置了 hitStrokeWidth，只有在附近才会触发事件，所以这里可以直接添加
-    addVertex(annId, insertIndex, insertPoint.x, insertPoint.y)
+    let newPoints = [...points]
+    newPoints.splice(insertIndex * 2, 0, insertPoint.x, insertPoint.y)
+    
+    // 3. Densify (Removed global densify, just add one point)
+    // newPoints = densifyPolygon(newPoints)
+    
+    store.updateAnnotation(annId, { points: newPoints })
 }
 
 
@@ -1451,10 +1492,69 @@ const handleSelect = (e: any, id: string) => {
 }
 
 // Helper for drag bound func (limit to stage)
-const getDragBoundFunc = () => {
-    return (pos: { x: number, y: number }) => {
-        // Just return pos for now, or implement bounds
-        return pos
+const getDragBoundFunc = (ann: Annotation) => {
+    return function(this: any, pos: { x: number, y: number }) {
+        if (!imageObj.value) return pos
+        const imgW = imageObj.value.width
+        const imgH = imageObj.value.height
+        
+        const node = this
+        const group = node.getParent()
+        if (!group) return pos
+        
+        // Convert absolute pos to local pos (relative to group)
+        const transform = group.getAbsoluteTransform()
+        const localPos = transform.copy().invert().point(pos)
+        
+        let minX = 0, maxX = 0, minY = 0, maxY = 0
+        
+        if (ann.type === 'rect' && ann.rect) {
+            minX = localPos.x
+            maxX = localPos.x + ann.rect.width
+            minY = localPos.y
+            maxY = localPos.y + ann.rect.height
+        } else if (ann.type === 'circle' && ann.rect) {
+             const r = ann.radius || 0
+             minX = localPos.x - r
+             maxX = localPos.x + r
+             minY = localPos.y - r
+             maxY = localPos.y + r
+        } else if (ann.points) {
+            let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity
+            for (let i = 0; i < ann.points.length; i += 2) {
+                const px = ann.points[i] ?? 0
+                const py = ann.points[i+1] ?? 0
+                pMinX = Math.min(pMinX, px)
+                pMaxX = Math.max(pMaxX, px)
+                pMinY = Math.min(pMinY, py)
+                pMaxY = Math.max(pMaxY, py)
+            }
+            
+            minX = pMinX + localPos.x
+            maxX = pMaxX + localPos.x
+            minY = pMinY + localPos.y
+            maxY = pMaxY + localPos.y
+        } else {
+            return pos
+        }
+        
+        // Check bounds
+        let validX = localPos.x
+        let validY = localPos.y
+        
+        if (minX < 0) {
+            validX += (0 - minX)
+        } else if (maxX > imgW) {
+            validX += (imgW - maxX)
+        }
+        
+        if (minY < 0) {
+            validY += (0 - minY)
+        } else if (maxY > imgH) {
+            validY += (imgH - maxY)
+        }
+        
+        return transform.point({ x: validX, y: validY })
     }
 }
 

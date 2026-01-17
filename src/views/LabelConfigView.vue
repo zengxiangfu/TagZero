@@ -2,10 +2,24 @@
   <div class="label-config-container">
     <n-space justify="space-between" align="center" style="margin-bottom: 24px;">
       <n-h2 style="margin: 0;">{{ t('menu.labelConfig') }}</n-h2>
-      <n-button type="primary" @click="openModal()">
-        {{ t('common.addNew') }}
-      </n-button>
+      <n-space>
+        <n-button type="primary" @click="openModal()">
+            {{ t('common.addNew') }}
+        </n-button>
+        <n-button @click="triggerImport">
+            {{ t('common.import') }}
+        </n-button>
+      </n-space>
     </n-space>
+
+    <!-- Hidden Import Input -->
+    <input
+        type="file"
+        ref="importInputRef"
+        style="display: none"
+        accept=".json"
+        @change="handleImportFile"
+    />
 
     <n-grid :x-gap="24" :y-gap="24" cols="1 2 s:3 m:4 l:5 xl:6" responsive="screen">
       <n-grid-item v-for="set in labelSets" :key="set.id">
@@ -20,6 +34,7 @@
           </template>
           <template #action>
             <n-space justify="end">
+              <n-button size="small" @click="handleExport(set)">{{ t('common.export') }}</n-button>
               <n-button size="small" @click="openModal(set)">{{ t('common.edit') }}</n-button>
               <n-button size="small" type="error" @click="handleDelete(set.id)">{{ t('common.delete') }}</n-button>
             </n-space>
@@ -89,9 +104,101 @@ const { labelSets } = storeToRefs(store)
 const dialog = useDialog()
 const message = useMessage()
 
+const importInputRef = ref<HTMLInputElement | null>(null)
 const showModal = ref(false)
 const isEdit = ref(false)
 const currentId = ref<string | null>(null)
+
+// Export Logic
+const handleExport = (set: LabelSet) => {
+    try {
+        const exportData = {
+            name: set.name,
+            presetImage: set.presetImage,
+            labels: set.labels,
+            // Add a version or type identifier if needed in future
+            _type: 'tagzero-label-set',
+            _version: '1.0'
+        }
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        // Sanitize filename but keep Chinese characters
+        const safeName = set.name.replace(/[\\/:*?"<>|]/g, '_')
+        a.download = `tagzero-labels-${safeName}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        message.success(t('common.exportSuccess') || 'Export successful')
+    } catch (e) {
+        console.error(e)
+        message.error(t('common.exportFailed') || 'Export failed')
+    }
+}
+
+// Import Logic
+const triggerImport = () => {
+    if (importInputRef.value) {
+        importInputRef.value.value = '' // Reset
+        importInputRef.value.click()
+    }
+}
+
+const handleImportFile = async (event: Event) => {
+    const input = event.target as HTMLInputElement
+    if (!input.files || input.files.length === 0) return
+    
+    const file = input.files[0]
+    const reader = new FileReader()
+    
+    reader.onload = async (e) => {
+        try {
+            const content = e.target?.result as string
+            const data = JSON.parse(content)
+            
+            // Validate structure
+            if (!data.name || !Array.isArray(data.labels)) {
+                throw new Error('Invalid label set format')
+            }
+            
+            // Clean up data for import
+            const baseName = data.name
+            let finalName = baseName
+            let counter = 1
+            const existingNames = new Set(labelSets.value.map(s => s.name))
+            
+            while (existingNames.has(finalName)) {
+                finalName = `${baseName} import（${counter}）`
+                counter++
+            }
+
+            const newSet: Omit<LabelSet, 'id'> = {
+                name: finalName,
+                presetImage: data.presetImage,
+                labels: data.labels.map((l: any) => ({
+                    id: Math.random().toString(36).substring(2, 9), // Regenerate IDs to avoid conflicts
+                    name: l.name || '',
+                    value: l.value || '',
+                    color: l.color || '#FF0000'
+                }))
+            }
+            
+            await store.addLabelSet(newSet)
+            message.success(t('common.importSuccess') || 'Import successful')
+            
+        } catch (err) {
+            console.error(err)
+            message.error(t('common.importFailed') || 'Import failed: Invalid file format')
+        }
+    }
+    
+    if (file) {
+      reader.readAsText(file)
+    }
+}
 
 // Initial empty state
 const emptySet: Omit<LabelSet, 'id'> = {
