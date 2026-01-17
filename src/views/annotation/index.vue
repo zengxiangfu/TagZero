@@ -163,7 +163,7 @@ const unannotatedImageIds = computed(() => {
 .canvas-container {
     flex: 1;
     background: #f0f0f0;
-    overflow: hidden;
+    overflow: auto;
     position: relative;
     display: flex;
     align-items: center;
@@ -199,5 +199,32 @@ const unannotatedImageIds = computed(() => {
     height: 24px;
     background: currentColor;
     mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3C/svg%3E") no-repeat center;
+}
+
+/* Custom Scrollbar for Canvas Container to ensure it's always visible */
+.canvas-container::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    background-color: #f5f5f5;
+}
+
+.canvas-container::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    background-color: #f5f5f5;
+}
+
+.canvas-container::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,.3);
+    background-color: #c1c1c1;
+}
+
+.canvas-container::-webkit-scrollbar-thumb:hover {
+    background-color: #a8a8a8;
+}
+
+.canvas-container::-webkit-scrollbar-corner {
+    background-color: #f5f5f5;
 }
 </style>

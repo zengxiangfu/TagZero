@@ -1,5 +1,5 @@
 <template>
-  <div ref="wrapperRef" class="canvas-wrapper w-full h-full bg-gray-100 overflow-hidden relative" @contextmenu.prevent>
+  <div ref="wrapperRef" class="canvas-wrapper w-full h-full bg-gray-100 overflow-auto relative" @contextmenu.prevent>
     <v-stage
       ref="stageRef"
       :config="stageConfig"
@@ -400,7 +400,15 @@ const handleMenuSelect = (key: string) => {
     // Do not close menu on select, allowing user to change mind or see result
 }
 
-const stageSize = ref({ width: 800, height: 600 })
+const stageSize = computed(() => {
+    const w = wrapperBounding.width.value || 800
+    const h = wrapperBounding.height.value || 600
+    const scale = store.stageConfig.scale
+    return {
+        width: w * scale,
+        height: h * scale
+    }
+})
 const groupConfig = ref({ x: 0, y: 0, scaleX: 1, scaleY: 1 })
 
 const stageConfig = computed(() => ({
@@ -1147,8 +1155,6 @@ const fitImage = () => {
     if (!wrapperRef.value || !imageObj.value) return
     const w = wrapperRef.value.clientWidth
     const h = wrapperRef.value.clientHeight
-    stageSize.value.width = w
-    stageSize.value.height = h
 
     const imgW = imageObj.value.width
     const imgH = imageObj.value.height
@@ -1663,5 +1669,32 @@ watch(selectedAnnotationId, (newId) => {
     text-align: center;
     color: #999;
     font-size: 12px;
+}
+
+/* Custom Scrollbar for Canvas Wrapper to ensure it's always visible */
+.canvas-wrapper::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    background-color: #f5f5f5;
+}
+
+.canvas-wrapper::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    background-color: #f5f5f5;
+}
+
+.canvas-wrapper::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,.3);
+    background-color: #c1c1c1;
+}
+
+.canvas-wrapper::-webkit-scrollbar-thumb:hover {
+    background-color: #a8a8a8;
+}
+
+.canvas-wrapper::-webkit-scrollbar-corner {
+    background-color: #f5f5f5;
 }
 </style>
